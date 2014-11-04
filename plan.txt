@@ -4,12 +4,15 @@ Database:
 
 -list of servers it is connected to
 -list of clients it is connected to:
-	struct connection:
+	struct client:
 		char *pass;
 		char *nick;
 		char *user;
-		int sock;
-			
+		int sock;	
+	struct channel:
+		struct client *joined[MAX_JOIN];			
+		char chan_name[20];
+		c	
 -list of channels 
 
 Functionality:

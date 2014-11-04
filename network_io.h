@@ -9,6 +9,6 @@ ssize_t writen(int fd, const void* buf, size_t n_bytes);
 int ec_read(int fd, void* buf, size_t n_bytes);
 void ec_write(int fd, const void* buf, size_t n_bytes);
 
-void send_message(int sender_fd, int reply_numeric, char *msg, ...);
+void send_message(int conn_fd, int sender_fd, char *msg, ...);
 
 #endif

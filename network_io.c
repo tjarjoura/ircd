@@ -79,7 +79,7 @@ void ec_write(int fd, const void* buf, size_t n_bytes)
 	}
 }
 
-void send_message(int conn_fd, int sender_fd, int reply_numeric, char *message, ...)
+void send_message(int conn_fd, int sender_fd, char *message, ...)
 {
 	char message_buffer[256];
 	char sender_buffer[56];
@@ -87,7 +87,7 @@ void send_message(int conn_fd, int sender_fd, int reply_numeric, char *message, 
 
 	va_list ap;
 
-	va_start(message);
+	va_start(ap, message);
 
 	if (sender_fd != -1) /* relay */
 		if (get_client_prefix(sender_fd, sender_buffer) < 0) {
@@ -101,4 +101,6 @@ void send_message(int conn_fd, int sender_fd, int reply_numeric, char *message, 
 	snprintf(message_buffer, 256, ":%s %s\r\n", sender_buffer, content);
 	
 	ec_write(conn_fd, message_buffer, strlen(message_buffer));
+
+	va_end(ap);
 }	

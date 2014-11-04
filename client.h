@@ -11,6 +11,7 @@ struct client {
 	int mode;
 	int sock_fd;
 	struct sockaddr_in peername;
+	int registered;
 };
 
 int new_client(int conn_fd);

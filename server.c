@@ -189,8 +189,16 @@ int main(int argc, char **argv)
 						close(sock_fd);
 					} else {
 						argc = parse_args(read_buffer, *args);
+						
+						if (strcmp(args[0], "QUIT") == 0) {
+							remove_descriptor(sock_fd);
+							remove_client(sock_fd);
+							close(sock_fd);
+							free(args);
+						} else {
 						handle_command(sock_fd, argc, args);
 						free(args);
+						}
 					}
 				}			
 			}	
