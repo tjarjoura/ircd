@@ -103,6 +103,50 @@ static int get_listening_socket()
 	return listen_fd;
 }
 
+static int parse_args(char *msg, char ***argsp)
+{
+	int argc, in_arg, i, j, n;
+	char c;
+
+	in_arg = trailing = argc = 0;
+	n = strlen(msg);
+
+	for (i = 0; i < n; i++) {
+		c = msg[i];
+		
+		if (c == ':' && !in_arg) {
+			trailing = 1;
+			argc++;
+			in_arg = 1;
+		} else if (c == ' ' && in_arg && !trailing) {
+			msg[i] = '\0';
+			in_arg = 0;
+		} else if (c != ' ' && !in_arg) {
+			argc++;
+			in_arg = 1;
+		}
+	}
+
+	*(argsp) = malloc((argc + 1) * sizeof(char *));
+
+	i = j = trailing = 0;
+
+	for (j = 0; j < argc; j++) {
+		while (msg[i] == ' ')
+			i++;
+		
+		*(*(argsp) + j) = (msg + i);
+
+		while (line[i] != '\0')
+			i++;
+		i++;
+	}	
+
+	*(*(argsp) + argc) = NULL;
+
+	return argc;
+}
+
 int main(int argc, char **argv) 
 {
 	initialize();
@@ -113,7 +157,11 @@ int main(int argc, char **argv)
 	timeout.tv_sec = 0;
 	timeout.tv_usec = 0;
 
-	int i;
+	char read_buffer[512];
+	char **args;
+	int arg;
+
+	int i, n;
 
 	while (1) {
 		FD_ZERO(&input_descriptors);
@@ -121,17 +169,32 @@ int main(int argc, char **argv)
 		
 		select(n_fds, &input_descriptors, NULL, NULL, timeout);
 
-		for (i = 0; i < (MAX_CLIENTS + 1); i++)
+		for (i = 0; i < (MAX_CLIENTS + 1); i++) {
 			if ((input_fds[i] != -1) && ISSET(input_fds[i], &input_descriptors)) {
 				sock_fd = input_fds[i];
 
-				if (sock_fd == listen_fd) {
+				if (sock_fd == listen_fd) { /* connection request */
 					if ((conn_fd = accept(listen_fd, (struct sockaddr *) NULL, NULL)) < 0)
 						perror("accept");
 					else {
 						add_descriptor(conn_fd);
-						new_client(conn_fd);		
-	}
-
+						new_client(conn_fd);
+					}
+				} else { /* message sent from client */
+					n = ec_read(sock_fd, read_buffer, 512);
+					
+					if (n == 0) { /* client closed connection */ 
+						remove_descriptor(sock_fd);
+						remove_client(sock_fd);
+						close(sock_fd);
+					} else {
+						argc = parse_args(read_buffer, *args);
+						handle_command(sock_fd, argc, args);
+						free(args);
+					}
+				}			
+			}	
+		}
+	
 	return 0;
 }

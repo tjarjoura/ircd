@@ -22,3 +22,14 @@ Functionality:
 -managing channels (channel.c)
 -register a connection (register.c)
 
+in formulating a response:
+-first a handler for the command and its arguments is called
+-response can contain one or many messages
+-write_message()
+-handler directly writes to connection socket
+
+single message response commands:
+-pass
+-nick
+-user
+-

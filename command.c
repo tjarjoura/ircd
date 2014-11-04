@@ -1,3 +1,5 @@
+#include "network_io.h"
+#include "client.h"
 #include "errors.h"
 
 struct command {
@@ -5,15 +7,29 @@ struct command {
 	void (*cmd_cb)(int fd, int argc, char **args);
 };
 
-static int handle_pass(int fd, int argc, char **args);
-static int handle_nick(int fd, int argc, char **args);
-static int handle_user(int fd, int argc, char **args);
+static void handle_pass(int fd, int argc, char **args);
+static void handle_nick(int fd, int argc, char **args);
+static void handle_user(int fd, int argc, char **args);
 
 static struct command commands = {
 				  {.cmd = "PASS", .cmd_cb = handle_pass},
 				  {.cmd = "NICK", .cmd_cb = handle_nick},
 				  {.cmd = "USER", .cmd_cb = handle_user}
 };
+
+static int n_commands = 3;
+
+void handle_command(int fd, int argc, char **args)
+{
+	int i;
+
+	for (i = 0; i < n_commands; i++) {
+		if (strcmp(args[0], commands[i].cmds) == 0) {
+			commands[i].cmd_cb(fd, argc, args);
+			break;
+		}
+	}
+}	
 
 static int handle_pass(int fd, int argc, char **args) 
 {

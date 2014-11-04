@@ -14,6 +14,12 @@ void initialize_clients()
 		clients[i].fd = -1;
 }
 
+void get_client_prefix(int conn_fd, char *sender_buffer)
+{
+	int i;
+
+	for (i = 0; i < MAX_CLIENTS; i++)	
+
 int new_client(int conn_fd)
 {
 	int i;
