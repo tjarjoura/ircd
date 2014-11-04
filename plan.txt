@@ -1,0 +1,24 @@
+OUTLINE FOR A SERVER:
+
+Database:
+
+-list of servers it is connected to
+-list of clients it is connected to:
+	struct connection:
+		char *pass;
+		char *nick;
+		char *user;
+		int sock;
+			
+-list of channels 
+
+Functionality:
+
+-main loop which polls open sockets for incoming messages or connection requests (main.c):
+	-one socket which continuously listens for incoming connects
+	-one socket for each client
+-parsing commands (main.c)
+-sending and receiving bytes from the network (network_io.c)
+-managing channels (channel.c)
+-register a connection (register.c)
+
