@@ -1,5 +1,6 @@
 #include "network_io.h"
 #include "client.h"
+#include "channel.h"
 #include "errors.h"
 
 struct command {
@@ -10,14 +11,18 @@ struct command {
 static void handle_pass(int fd, int argc, char **args);
 static void handle_nick(int fd, int argc, char **args);
 static void handle_user(int fd, int argc, char **args);
+static void handle_join(int fd, int argc, char **args);
+static void handle_part(int fd, int argc, char **args);
 
 static struct command commands = {
 				  {.cmd = "PASS", .cmd_cb = handle_pass},
 				  {.cmd = "NICK", .cmd_cb = handle_nick},
 				  {.cmd = "USER", .cmd_cb = handle_user},
+				  {.cmd = "JOIN", .cmd_cb = handle_join},
+				  {.cmd = "PART", .cmd_cb = handle_part}
 };
 
-static int n_commands = 3;
+static int n_commands = 5;
 
 void handle_command(int fd, int argc, char **args)
 {
@@ -85,5 +90,64 @@ static void handle_user(int fd, int argc, char **args)
 		case ERR_NEEDMOREPARAMS:
 			send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
 			break;
+	}
+}
+
+static void handle_join(int fd, int argc, char **args)
+{
+	if (argc < 2) {
+		send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
+		return;
+	}
+
+	char *bufp = args[1];
+	int i, n = 0;
+
+	while (*bufp != '\0') {
+		if (*bufp == ',') {
+			*bufp = '\0';
+			n++;
+		}
+	
+		bufp++;
+	}
+
+	bufp = args[1]
+	for (i = 0; i < n; i++) {
+		join_channel(bufp, fd);
+		
+		/* advance to next channel name */
+		while (*bufp != '\0') bufp++;
+		bufp++;
+	}
+}
+
+static void handle_part(int fd, int argc, char **args)
+{
+	if (argc < 2) {
+		send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
+		return;
+	}
+
+	char *bufp = args[1];
+	int i, n = 0;
+
+	while (*bufp != '\0') {
+		if (*bufp == ',') {
+			n++;
+			*bufp = '\0';
+		}
+
+		bufp++;
+	}
+
+	bufp = args[1];
+
+	for (i = 0; i < n; i++) {
+		part_user(bufp, fd);
+
+		/* advance to next channel name */
+		while (*bufp != '\0') bufp++;
+		bufp++;
 	}
 }

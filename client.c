@@ -1,18 +1,6 @@
 #include <sys/socket.h>
 #include "client.h"
 
-struct client {
-	char pass[20];
-	char user[20];
-	char nick[20];
-	char realname[30];
-	struct channel* joined_channels[MAX_CHAN];
-	int mode;
-	int sock_fd;
-	struct sockaddr_in peername;
-	int registered;
-};
-
 struct client clients[MAX_CLIENTS];
 static int n_clients = 0;
 
@@ -105,10 +93,15 @@ int set_nick(int cli_fd, char *nick)
 			strncpy(clients[i].nick, nick, 20);
 			break;
 		}
+
 	if (i == MAX_CLIENTS) {
 		printf("No client for fd %d was found.\n", cli_fd);
 		return -1;
 	}
+
+	/* if nick and user are both set, then mark this client as registered */
+	if (clients[i].user[0] != '\0')
+		clients[i].registered = 1;
 
 	return 0;
 }
@@ -129,6 +122,10 @@ int set_user(int cli_fd, char *username, int mode, char *realname)
 		printf("No client for fd %d was found.\n", cli_fd);
 		return -1;
 	}
+
+	/* if nick and user are both set, then mark this client as registered */
+	if (clients[i].nick[0] != '\0')
+		clients[i].registered = 1;
 
 	return 0;
 }
