@@ -1,3 +1,9 @@
 An implementation of (parts of) the irc server protocol written in C.
 
-Currently just parts of the skeleton have been written. Far from functional.
+## Features implemented:
+
+1. Connection registration commands
+2. Client data structure and functions
+3. Channel data structure and functions
+4. Main loop(select() based)
+5. Sending/receiving correctly formatted IRC messages over the network

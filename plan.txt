@@ -2,6 +2,9 @@ OUTLINE FOR A SERVER:
 
 Database:
 
+-packet could contain multiple commands
+-when a packet arrives from a certain client connection, first check how many commands it contains
+
 -list of servers it is connected to
 -list of clients it is connected to:
 	struct client:

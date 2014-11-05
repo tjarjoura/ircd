@@ -1,10 +1,14 @@
 #ifndef CHANNEL_H
 #define CHANNEL_H
 
+#define MAX_CHANNELS 40
 #define MAX_JOIN 20
 
-struct channel {
-	char name[20];
-	char topic[100];
-	struct client *joined_users[MAX_JOIN];
+void initialize_channels();
 
+int join_channel(char *chan_name, int cli_fd);
+int part_channel(char *chan_name, int cli_fd);
+int kick_user(char *chan_name, int cli_fd); 
+int set_topic(char* chan_name, int cli_fd);
+
+#endif

@@ -1,6 +1,18 @@
 #include <sys/socket.h>
 #include "client.h"
 
+struct client {
+	char pass[20];
+	char user[20];
+	char nick[20];
+	char realname[30];
+	struct channel* joined_channels[MAX_CHAN];
+	int mode;
+	int sock_fd;
+	struct sockaddr_in peername;
+	int registered;
+};
+
 struct client clients[MAX_CLIENTS];
 static int n_clients = 0;
 
@@ -14,13 +26,13 @@ void initialize_clients()
 		clients[i].fd = -1;
 }
 
-void get_client_prefix(int conn_fd, char *sender_buffer)
+void get_client_prefix(int cli_fd, char *sender_buffer)
 {
 	int i;
 
 	for (i = 0; i < MAX_CLIENTS; i++)	
 
-int new_client(int conn_fd)
+int new_client(int cli_fd)
 {
 	int i;
 
@@ -33,8 +45,8 @@ int new_client(int conn_fd)
 		if (clients[i].fd == -1)
 			break;
 
-	clients[i].sock_fd = conn_fd;
-	if (getpeername(conn_fd, &clients[i].peername, sizeof(struct sockaddr_in)) < 0) {
+	clients[i].sock_fd = cli_fd;
+	if (getpeername(cli_fd, &clients[i].peername, sizeof(struct sockaddr_in)) < 0) {
 		perror("getpeername");
 		return -1;
 	}
@@ -43,16 +55,16 @@ int new_client(int conn_fd)
 	return 0;
 }
 
-int remove_client(int conn_fd)
+int remove_client(int cli_fd)
 {
 	int i;
 
 	for (i = 0; i < MAX_CLIENTS; i++)
-		if (clients[i].fd == conn_fd)
+		if (clients[i].fd == cli_fd)
 			break;
 
 	if (i == MAX_CLIENTS) {
-		printf("No client for fd %d was found.\n", conn_fd);
+		printf("No client for fd %d was found.\n", cli_fd);
 		return -1;
 	}
 
@@ -62,25 +74,25 @@ int remove_client(int conn_fd)
 	return 0;
 }
 
-int set_pass(int conn_fd, char *pass)
+int set_pass(int cli_fd, char *pass)
 {
 	int i;
 
 	for (i = 0; i < MAX_CLIENTS; i++)
-		if (clients[i].fd == conn_fd) {
+		if (clients[i].fd == cli_fd) {
 			strncpy(clients[i].pass, pass, 20);
 			break;
 		}
 
 	if (i == MAX_CLIENTS) {
-		printf("No client for fd %d was found.\n", conn_fd);
+		printf("No client for fd %d was found.\n", cli_fd);
 		return -1;
 	}
 
 	return 0;
 }
 
-int set_nick(int conn_fd, char *nick)
+int set_nick(int cli_fd, char *nick)
 {
 	int i;
 
@@ -89,24 +101,24 @@ int set_nick(int conn_fd, char *nick)
 			return ERR_NICKNAMEINUSE;
 
 	for (i = 0; i < MAX_CLIENTS; i++)
-		if (clients[i].fd == conn_fd) {
+		if (clients[i].fd == cli_fd) {
 			strncpy(clients[i].nick, nick, 20);
 			break;
 		}
 	if (i == MAX_CLIENTS) {
-		printf("No client for fd %d was found.\n", conn_fd);
+		printf("No client for fd %d was found.\n", cli_fd);
 		return -1;
 	}
 
 	return 0;
 }
 
-int set_user(int conn_fd, char *username, int mode, char *realname)
+int set_user(int cli_fd, char *username, int mode, char *realname)
 {
 	int i;
 
 	for (i = 0; i < MAX_CLIENTS; i++)
-		if (clients[i].fd == conn_fd) {
+		if (clients[i].fd == cli_fd) {
 			strncpy(client[i].user, username, 20);
 			strncpy(client[i].realname, realname, 30);
 			client[i].mode |= mode;
@@ -114,9 +126,21 @@ int set_user(int conn_fd, char *username, int mode, char *realname)
 		}
 
 	if (i == MAX_CLIENTS) {
-		printf("No client for fd %d was found.\n", conn_fd);
+		printf("No client for fd %d was found.\n", cli_fd);
 		return -1;
 	}
 
 	return 0;
+}
+
+struct client *get_client(int cli_fd)
+{
+	int i;
+
+	for (i = 0; i < MAX_CLIENTS; i++)
+	        if (clients[i].fd == cli_fd)
+	       		return &clients[i];
+
+	printf("get_client(): No client for file descriptor %d was found\n");
+	return NULL;
 }

@@ -147,6 +147,38 @@ static int parse_args(char *msg, char ***argsp)
 	return argc;
 }
 
+static void handle_packet(int conn_fd, char *read_buffer, int n)
+{
+	/* First see how many commands we got */
+	int i, packets = 0;
+	int argc, char **args;
+	char *bufp;
+
+	for (i = 0; i < n; i++) {
+		if (read_buffer[i] == '\r' && read_buffer[i+1] == '\n') {
+			packets++;
+			read_buffer[i] = read_buffer[i+1] = '\0';
+		}
+	}
+
+	bufp = read_buffer;
+	for (i = 0; i < packets; i++) {
+		argc = parse_args(bufp, &args);
+		
+		if (strcmp(args[0], "QUIT") == 0) {
+			remove_client(conn_fd);
+			remove_descriptor(conn_fd);
+			close(conn_fd);
+		} else
+			handle_command(sock_fd, argc, args);
+		free(args);
+		
+		/* go to next command */
+		while (*bufp != '\0') bufp++;
+		while (*bufp == '\0') bufp++;
+	}		
+}	
+
 int main(int argc, char **argv) 
 {
 	initialize();
@@ -187,19 +219,8 @@ int main(int argc, char **argv)
 						remove_descriptor(sock_fd);
 						remove_client(sock_fd);
 						close(sock_fd);
-					} else {
-						argc = parse_args(read_buffer, *args);
-						
-						if (strcmp(args[0], "QUIT") == 0) {
-							remove_descriptor(sock_fd);
-							remove_client(sock_fd);
-							close(sock_fd);
-							free(args);
-						} else {
-						handle_command(sock_fd, argc, args);
-						free(args);
-						}
-					}
+					} else
+						handle_packet(read_buffer, n);
 				}			
 			}	
 		}
