@@ -4,6 +4,7 @@
 #include <time.h>
 #include <sys/socket.h>
 
+extern const char *motd;
 extern const char *server_version;
 extern time_t server_start_time;
 

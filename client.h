@@ -12,13 +12,13 @@ struct client {
 	char user[20];
 	char nick[20];
 	char realname[30];
+	char ip_addr[20];
 
 	struct channel *joined_channels[MAX_CHAN_JOIN];
 	int n_joined;
 	
 	int mode;
 	int fd;
-	struct sockaddr_in peername;
 	
 	int registered;
 	int welcomed;

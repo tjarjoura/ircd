@@ -31,6 +31,8 @@ static int n_commands = 5;
 void handle_command(int fd, int argc, char **args)
 {
 	int i;
+	
+	struct client *cli = get_client(fd);
 
 	for (i = 0; i < n_commands; i++) {
 		if (strcmp(args[0], commands[i].cmd) == 0) {
@@ -40,12 +42,13 @@ void handle_command(int fd, int argc, char **args)
 	}
 
 	if (i == n_commands)
-		send_message(fd, -1, "%d %s :Unknown command", ERR_UNKNOWNCOMMAND, args[0]);
+		send_message(fd, -1, "%d %s %s :Unknown command", ERR_UNKNOWNCOMMAND, cli->nick, args[0]);
 }	
 
 static void handle_pass(int fd, int argc, char **args) 
 {
 	int rv;
+	struct client *cli = get_client(fd);
 
 	if (argc < 2)
 		rv = ERR_NEEDMOREPARAMS;
@@ -54,7 +57,7 @@ static void handle_pass(int fd, int argc, char **args)
 	
 	switch (rv) {
 		case ERR_NEEDMOREPARAMS:
-			send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
+			send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
 			break;
 	}
 }
@@ -62,6 +65,7 @@ static void handle_pass(int fd, int argc, char **args)
 static void handle_nick(int fd, int argc, char **args)
 {
 	int rv;
+	struct client *cli = get_client(fd);
 
 	if (argc < 2)
 		rv = ERR_NONICKNAMEGIVEN;
@@ -70,13 +74,13 @@ static void handle_nick(int fd, int argc, char **args)
 
 	switch (rv) {
 		case ERR_ERRONEUSNICKNAME:
-			send_message(fd, -1, "%d %s :Erroneus nickname", ERR_ERRONEUSNICKNAME, args[1]);
+			send_message(fd, -1, "%d %s %s :Erroneus nickname", ERR_ERRONEUSNICKNAME, cli->nick, args[1]);
 			break;
 		case ERR_NONICKNAMEGIVEN:
-			send_message(fd, -1, "%d :No nickname given", ERR_NONICKNAMEGIVEN);
+			send_message(fd, -1, "%d %s :No nickname given", ERR_NONICKNAMEGIVEN, cli->nick);
 			break;
 		case ERR_NICKNAMEINUSE:
-			send_message(fd, -1, "%d %s :Nickname is already in use", ERR_NICKNAMEINUSE, args[1]);
+			send_message(fd, -1, "%d %s %s :Nickname is already in use", ERR_NICKNAMEINUSE, cli->nick, args[1]);
 			break;
 	}
 }
@@ -84,7 +88,8 @@ static void handle_nick(int fd, int argc, char **args)
 static void handle_user(int fd, int argc, char **args)
 {
 	int rv;
-	
+	struct client *cli = get_client(fd);
+
 	if (argc < 5)
 		rv = ERR_NEEDMOREPARAMS;
 
@@ -92,18 +97,20 @@ static void handle_user(int fd, int argc, char **args)
 
 	switch (rv) {
 		case ERR_NEEDMOREPARAMS:
-			send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
+			send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
 			break;
 		case ERR_ALREADYREGISTERED:
-			send_message(fd, -1, "%d :Unauthorized command (already registered)", ERR_ALREADYREGISTERED);
+			send_message(fd, -1, "%d %s :Unauthorized command (already registered)", ERR_ALREADYREGISTERED, cli->nick);
 			break;
 	}
 }
 
 static void handle_join(int fd, int argc, char **args)
 {
+	struct client *cli = get_client(fd);
+	
 	if (argc < 2) {
-		send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
+		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
 		return;
 	}
 
@@ -121,7 +128,6 @@ static void handle_join(int fd, int argc, char **args)
 
 	bufp = args[1];
 	for (i = 0; i < n; i++) {
-		printf("calling join_channel(%s, %d)\n", bufp, fd);
 		join_channel(bufp, fd);
 		
 		/* advance to next channel name */
@@ -132,8 +138,10 @@ static void handle_join(int fd, int argc, char **args)
 
 static void handle_part(int fd, int argc, char **args)
 {
+	struct client *cli = get_client(fd);
+
 	if (argc < 2) {
-		send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
+		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
 		return;
 	}
 

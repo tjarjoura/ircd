@@ -40,13 +40,14 @@ int get_client_prefix(int cli_fd, char *sender_buffer)
 		return -1;
 	}
 	
-	snprintf(sender_buffer, 256, "%s!%s@%d", clients[i].nick, clients[i].user, clients[i].peername.sin_addr.s_addr);
+	snprintf(sender_buffer, 256, "%s!%s@%s", clients[i].nick, clients[i].user, clients[i].ip_addr);
 	return 0;
 }
 
 int new_client(int cli_fd)
 {
 	int i;
+	struct sockaddr_in cliaddr;
 	unsigned sockaddr_len = sizeof(struct sockaddr_in);
 
 	if (n_clients == MAX_CLIENTS) {
@@ -59,12 +60,14 @@ int new_client(int cli_fd)
 			break;
 
 	clients[i].fd = cli_fd;
-	if (getpeername(cli_fd, (struct sockaddr *) &(clients[i].peername), &sockaddr_len) < 0) {
+	if (getpeername(cli_fd, (struct sockaddr *) &cliaddr, &sockaddr_len) < 0) {
 		perror("getpeername");
 		return -1;
 	}
 
-	clients[i].registered = 3; /* set both bits to 1 */
+	inet_ntop(AF_INET, &(cliaddr.sin_addr), clients[i].ip_addr, 20); 
+
+	clients[i].registered = 0;
 
 	n_clients++;
 	return 0;
@@ -118,7 +121,6 @@ int set_nick(int cli_fd, char *nick)
 	for (i = 0; i < MAX_CLIENTS; i++)
 		if (clients[i].fd == cli_fd) {
 			strncpy(clients[i].nick, nick, 20);
-			printf("set nick to %s\n", clients[i].nick);
 			break;
 		}
 
@@ -156,8 +158,9 @@ int set_user(int cli_fd, char *username, int mode, char *realname)
 		return ERR_ALREADYREGISTERED;
 
 	clients[i].registered |= USER_REGISTERED;
-
+	
 	strncpy(clients[i].user, username, 20);
+	
 	strncpy(clients[i].realname, realname, 30);
 	clients[i].mode |= mode;
 
@@ -181,10 +184,14 @@ void send_welcome(struct client *cli)
 
 	inet_ntop(AF_INET, &(server_addr.sin_addr), addr_buffer, 30);
 
-	send_message(cli->fd, -1, "%03d :Welcome to the Internet Relay Network %s!%s@%ld", RPL_WELCOME, cli->nick, cli->user, cli->peername.sin_addr.s_addr);
-	send_message(cli->fd, -1, "%03d :Your host is %s, running version %s", RPL_YOURHOST, addr_buffer, server_version); 
-	send_message(cli->fd, -1, "%03d :This server was created %s", RPL_CREATED, ctime(&server_start_time));
-	send_message(cli->fd, -1, "%03d :%s %s <NO MODES>", RPL_MYINFO, addr_buffer, server_version);
+	send_message(cli->fd, -1, "%03d %s :Welcome to the Internet Relay Network %s!%s@%s", RPL_WELCOME, cli->nick, cli->nick, cli->user, cli->ip_addr);
+	send_message(cli->fd, -1, "%03d %s :Your host is %s, running version %s", RPL_YOURHOST, cli->nick, addr_buffer, server_version); 
+	send_message(cli->fd, -1, "%03d %s :This server was created %s", RPL_CREATED, cli->nick, ctime(&server_start_time));
+	send_message(cli->fd, -1, "%03d %s :%s %s <NO MODES>", RPL_MYINFO, cli->nick, addr_buffer, server_version);
+	send_message(cli->fd, -1, "%d %s :There are %d users and %d invisible on %d server\n", RPL_LUSERCLIENT, cli->nick, n_clients, 0, 1);
+	send_message(cli->fd, -1, "%d %s :-%s Message of the day-", RPL_MOTDSTART, cli->nick, addr_buffer);
+	send_message(cli->fd, -1, "%d %s :-%s", RPL_MOTD, cli->nick, motd);
+	send_message(cli->fd, -1, "%d %s :End of /MOTD command", RPL_ENDOFMOTD, cli->nick);
 }
 
 struct client *get_client(int cli_fd)
@@ -198,3 +205,14 @@ struct client *get_client(int cli_fd)
 	printf("get_client(): No client for file descriptor %d was found\n", cli_fd);
 	return NULL;
 }
+
+void send_to_all_channels(int cli_fd, char *message)
+{
+	int i;
+	struct client *cli = get_client(cli_fd);
+
+	for (i = 0; i < MAX_CHAN_JOIN; i++) {
+		if (cli->joined_channels[i] != NULL)
+			relay_message(cli->joined_channels[i]->name, 
+
+

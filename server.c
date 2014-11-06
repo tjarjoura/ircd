@@ -24,7 +24,9 @@ static fd_set input_descriptors;
 static int n_fds = 0;
 
 time_t server_start_time;
+
 const char *server_version = "devel";
+const char *motd = "This IRC server was written by Tyler Jarjoura";
 
 static void initialize()
 {

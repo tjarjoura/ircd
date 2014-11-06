@@ -14,11 +14,12 @@ struct channel {
 
 void initialize_channels();
 
+struct channel *get_channel(char *chan_name);
+
 void join_channel(char *chan_name, int cli_fd);
 void part_user(char *chan_name, int cli_fd);
 int kick_user(char *chan_name, int cli_fd); 
 int set_topic(char* chan_name, int cli_fd);
-void relay_user_quit(struct channel *chan, int cli_fd, char *quit_message);
-void relay_user_message(char *chan_name, int cli_fd, char *message);
+void relay_message(char *chan_name, int cli_fd, char *message);
 
 #endif
