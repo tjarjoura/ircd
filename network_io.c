@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 #include "network_io.h"
 #include "client.h"
@@ -86,6 +87,9 @@ void send_message(int conn_fd, int sender_fd, char *message, ...)
 	char sender_buffer[56];
 	char content_buffer[200];
 
+	struct sockaddr_in server_addr;
+	socklen_t addrlen = sizeof(struct sockaddr);
+
 	va_list ap;
 
 	va_start(ap, message);
@@ -95,8 +99,10 @@ void send_message(int conn_fd, int sender_fd, char *message, ...)
 			printf("Error identifying sender. Invalid file descriptor.\n");
 			return;
 		}
-	} else
-		gethostname(sender_buffer, 50);
+	} else {
+		getsockname(conn_fd, (struct sockaddr *) &server_addr, &addrlen);
+		inet_ntop(AF_INET, &(server_addr.sin_addr), sender_buffer, 56);
+	}	
 
 	vsnprintf(content_buffer, 200, message, ap);
 	snprintf(message_buffer, 256, ":%s %s\r\n", sender_buffer, content_buffer);

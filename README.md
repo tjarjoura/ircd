@@ -1,4 +1,4 @@
-An implementation of (parts of) the irc server protocol written in C.
+An implementation of (parts of) the irc server protocol written in C. Currently in the process of debugging to the point that it works and supports basic join/privmsg messages.
 
 ## Features implemented:
 
@@ -9,3 +9,4 @@ An implementation of (parts of) the irc server protocol written in C.
 5. Sending/receiving correctly formatted IRC messages over the network
 6. Join/part channels
 7. Quit command
+8. Welcome messages

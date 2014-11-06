@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -13,6 +14,7 @@
 #include "channel.h"
 #include "client.h"
 #include "network_io.h"
+#include "server.h"
 
 #define LISTENPORT 6667
 #define LISTENMAX 4
@@ -21,6 +23,9 @@ static int input_fds[MAX_CLIENTS + 1];
 static fd_set input_descriptors;
 static int n_fds = 0;
 
+time_t server_start_time;
+const char *server_version = "devel";
+
 static void initialize()
 {
 	int i;
@@ -28,6 +33,8 @@ static void initialize()
 	for (i = 0; i < (MAX_CLIENTS + 1); i++)
 		input_fds[i] = -1;
 	
+	server_start_time = time(NULL);
+
 	initialize_clients();
 	initialize_channels();
 }
@@ -190,14 +197,15 @@ static void handle_packet(int cli_fd, char *read_buffer, int n)
 
 int main(int argc, char **argv) 
 {
-	initialize();
 	int sock_fd, conn_fd, listen_fd = get_listening_socket();
+	
+	initialize();
 	add_descriptor(listen_fd);	
 	
 	struct timeval timeout;
 	timeout.tv_sec = 0;
 	timeout.tv_usec = 0;
-
+	
 	char read_buffer[512];
 
 	int i, n;

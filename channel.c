@@ -24,7 +24,7 @@ static int add_channel(char *chan_name)
 	int i;
 
 	for (i = 0; i < MAX_CHANNELS; i++) {
-		if (channels[i].n_joined == -1)
+		if (channels[i].n_joined == -1) /* -1 users joined means this slot in the channel array is open */
 			break;
 	}
 
@@ -148,8 +148,10 @@ void join_channel(char *chan_name, int cli_fd)
 		}
 	}
 
-	if (j == MAX_JOIN)
+	if (j == MAX_JOIN) {
 		send_message(cli_fd, -1, "%d %s :Cannot join channel (+l)", ERR_CHANNELISFULL, chan_name);
+		return;
+	}
 
 	send_channel_greeting(&channels[i], cli_fd);
 

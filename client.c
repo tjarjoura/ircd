@@ -3,10 +3,15 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include "server.h"
 #include "client.h"
 #include "replies.h"
+#include "network_io.h"
+
+#define NICK_REGISTERED 2
+#define USER_REGISTERED 1
 
 struct client clients[MAX_CLIENTS];
 static int n_clients = 0;
@@ -54,11 +59,12 @@ int new_client(int cli_fd)
 			break;
 
 	clients[i].fd = cli_fd;
-	printf("[DEBUG] Setting client[%d]'s descriptor to %d\n", i, cli_fd);
-	if (getpeername(cli_fd, (struct sockaddr*) &clients[i].peername, &sockaddr_len) < 0) {
+	if (getpeername(cli_fd, (struct sockaddr *) &(clients[i].peername), &sockaddr_len) < 0) {
 		perror("getpeername");
 		return -1;
 	}
+
+	clients[i].registered = 3; /* set both bits to 1 */
 
 	n_clients++;
 	return 0;
@@ -112,6 +118,7 @@ int set_nick(int cli_fd, char *nick)
 	for (i = 0; i < MAX_CLIENTS; i++)
 		if (clients[i].fd == cli_fd) {
 			strncpy(clients[i].nick, nick, 20);
+			printf("set nick to %s\n", clients[i].nick);
 			break;
 		}
 
@@ -120,10 +127,12 @@ int set_nick(int cli_fd, char *nick)
 		return -1;
 	}
 
+	clients[i].registered |= NICK_REGISTERED;
+
 	/* if nick and user are both set, then mark this client as registered */
-	if ((clients[i].user[0] != '\0') && !clients[i].registered) {
+	if (clients[i].registered == 3 && !clients[i].welcomed) {
 		send_welcome(&clients[i]);
-		clients[i].registered = 1;
+		clients[i].welcomed = 1;
 	}
 
 	return 0;
@@ -143,20 +152,39 @@ int set_user(int cli_fd, char *username, int mode, char *realname)
 		return -1;
 	}
 
-	if (clients[i].registered)
+	if (clients[i].registered & USER_REGISTERED)
 		return ERR_ALREADYREGISTERED;
+
+	clients[i].registered |= USER_REGISTERED;
 
 	strncpy(clients[i].user, username, 20);
 	strncpy(clients[i].realname, realname, 30);
 	clients[i].mode |= mode;
 
-	/* if nick and user are both set, then mark this client as registered */
-	if ((clients[i].nick[0] != '\0') && !clients[i].registered) {
-		clients[i].registered = 1;
+	/* if nick and user are both set, then mark this client as registered. 3 = both bits set */
+	if (clients[i].registered == 3 && !clients[i].welcomed) {
 		send_welcome(&clients[i]);
+		clients[i].welcomed = 1;
 	}
 
 	return 0;
+}
+
+void send_welcome(struct client *cli)
+{
+	char addr_buffer[30];
+
+	struct sockaddr_in server_addr;
+	socklen_t addrlen = sizeof(struct sockaddr);
+
+	getsockname(cli->fd, (struct sockaddr *) &server_addr, &addrlen);
+
+	inet_ntop(AF_INET, &(server_addr.sin_addr), addr_buffer, 30);
+
+	send_message(cli->fd, -1, "%03d :Welcome to the Internet Relay Network %s!%s@%ld", RPL_WELCOME, cli->nick, cli->user, cli->peername.sin_addr.s_addr);
+	send_message(cli->fd, -1, "%03d :Your host is %s, running version %s", RPL_YOURHOST, addr_buffer, server_version); 
+	send_message(cli->fd, -1, "%03d :This server was created %s", RPL_CREATED, ctime(&server_start_time));
+	send_message(cli->fd, -1, "%03d :%s %s <NO MODES>", RPL_MYINFO, addr_buffer, server_version);
 }
 
 struct client *get_client(int cli_fd)

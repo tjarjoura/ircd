@@ -1,6 +1,10 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-void send_welcome(int cli_fd, struct client *cli);
+#include <time.h>
+#include <sys/socket.h>
+
+extern const char *server_version;
+extern time_t server_start_time;
 
 #endif

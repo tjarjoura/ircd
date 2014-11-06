@@ -1,5 +1,9 @@
 /* NORMAL REPLIES */
 
+#define RPL_WELCOME 	      1
+#define RPL_YOURHOST          2
+#define RPL_CREATED           3
+#define RPL_MYINFO            4
 #define RPL_NONE            300
 #define RPL_USERHOST        302
 #define RPL_ISON            303

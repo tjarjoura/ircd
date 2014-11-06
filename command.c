@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -88,7 +89,7 @@ static void handle_user(int fd, int argc, char **args)
 		rv = ERR_NEEDMOREPARAMS;
 
 	rv = set_user(fd, args[1], atoi(args[2]), args[4]); 	
-	
+
 	switch (rv) {
 		case ERR_NEEDMOREPARAMS:
 			send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
@@ -107,7 +108,7 @@ static void handle_join(int fd, int argc, char **args)
 	}
 
 	char *bufp = args[1];
-	int i, n = 0;
+	int i, n = 1;
 
 	while (*bufp != '\0') {
 		if (*bufp == ',') {
@@ -120,6 +121,7 @@ static void handle_join(int fd, int argc, char **args)
 
 	bufp = args[1];
 	for (i = 0; i < n; i++) {
+		printf("calling join_channel(%s, %d)\n", bufp, fd);
 		join_channel(bufp, fd);
 		
 		/* advance to next channel name */
