@@ -1,13 +1,18 @@
 #include <stdio.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "command.h"
+#include "channel.h"
 #include "client.h"
+#include "network_io.h"
 
 #define LISTENPORT 6667
 #define LISTENMAX 4
@@ -22,6 +27,9 @@ static void initialize()
 
 	for (i = 0; i < (MAX_CLIENTS + 1); i++)
 		input_fds[i] = -1;
+	
+	initialize_clients();
+	initialize_channels();
 }
 
 static int add_descriptor(int fd)
@@ -30,7 +38,7 @@ static int add_descriptor(int fd)
 
 	for (i = 0; i < (MAX_CLIENTS + 1); i++)
 		if (input_fds[i] == -1) {
-			input_fds[i] == fd;
+			input_fds[i] = fd;
 			if ((fd + 1) > n_fds)
 				n_fds = fd + 1;
 			break;
@@ -56,7 +64,7 @@ static int remove_descriptor(int fd)
 
 	if (i == (MAX_CLIENTS + 1)) {
 		fprintf(stderr, "remove_descriptor(): File descriptor not found.\n");
-		return -1
+		return -1;
 	}
 
 	return 0;
@@ -89,7 +97,7 @@ static int get_listening_socket()
 
 	setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
 
-	if (bind(listen_fd, (struct sockaddr *)	addr, sizeof(struct sockaddr_in)) < 0) {
+	if (bind(listen_fd, (struct sockaddr *)	&addr, sizeof(struct sockaddr_in)) < 0) {
 		perror("bind");
 		return -1;
 	}
@@ -105,7 +113,7 @@ static int get_listening_socket()
 
 static int parse_args(char *msg, char ***argsp)
 {
-	int argc, in_arg, i, j, n;
+	int argc, in_arg, trailing, i, j, n;
 	char c;
 
 	in_arg = trailing = argc = 0;
@@ -137,7 +145,7 @@ static int parse_args(char *msg, char ***argsp)
 		
 		*(*(argsp) + j) = (msg + i);
 
-		while (line[i] != '\0')
+		while (msg[i] != '\0')
 			i++;
 		i++;
 	}	
@@ -147,11 +155,12 @@ static int parse_args(char *msg, char ***argsp)
 	return argc;
 }
 
-static void handle_packet(int conn_fd, char *read_buffer, int n)
+static void handle_packet(int cli_fd, char *read_buffer, int n)
 {
 	/* First see how many commands we got */
 	int i, packets = 0;
-	int argc, char **args;
+	int argc; 
+	char **args;
 	char *bufp;
 
 	for (i = 0; i < n; i++) {
@@ -166,11 +175,11 @@ static void handle_packet(int conn_fd, char *read_buffer, int n)
 		argc = parse_args(bufp, &args);
 		
 		if (strcmp(args[0], "QUIT") == 0) {
-			remove_client(conn_fd);
-			remove_descriptor(conn_fd);
-			close(conn_fd);
+			remove_client(cli_fd);
+			remove_descriptor(cli_fd);
+			close(cli_fd);
 		} else
-			handle_command(sock_fd, argc, args);
+			handle_command(cli_fd, argc, args);
 		free(args);
 		
 		/* go to next command */
@@ -190,8 +199,6 @@ int main(int argc, char **argv)
 	timeout.tv_usec = 0;
 
 	char read_buffer[512];
-	char **args;
-	int arg;
 
 	int i, n;
 
@@ -199,10 +206,10 @@ int main(int argc, char **argv)
 		FD_ZERO(&input_descriptors);
 		populate_fd_set();
 		
-		select(n_fds, &input_descriptors, NULL, NULL, timeout);
+		select(n_fds, &input_descriptors, NULL, NULL, &timeout);
 
 		for (i = 0; i < (MAX_CLIENTS + 1); i++) {
-			if ((input_fds[i] != -1) && ISSET(input_fds[i], &input_descriptors)) {
+			if ((input_fds[i] != -1) && FD_ISSET(input_fds[i], &input_descriptors)) {
 				sock_fd = input_fds[i];
 
 				if (sock_fd == listen_fd) { /* connection request */
@@ -220,10 +227,12 @@ int main(int argc, char **argv)
 						remove_client(sock_fd);
 						close(sock_fd);
 					} else
-						handle_packet(read_buffer, n);
+						handle_packet(sock_fd, read_buffer, n);
 				}			
 			}	
 		}
+	}	
 	
 	return 0;
 }
+

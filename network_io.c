@@ -6,6 +6,7 @@
 #include <errno.h>
 
 #include "network_io.h"
+#include "client.h"
 
 ssize_t readn(int fd, void* buf, size_t n_bytes)
 {
@@ -34,7 +35,7 @@ ssize_t readn(int fd, void* buf, size_t n_bytes)
 	return (n_bytes - n_left);
 }
 
-ssize_t writen(int fd, const void* buf, size_t n_bytes)
+ssize_t writen(int fd, void* buf, size_t n_bytes)
 {
 	size_t n_left;
 	ssize_t n_written;
@@ -71,7 +72,7 @@ int ec_read(int fd, void* buf, size_t n_bytes)
 	return n;
 }
 
-void ec_write(int fd, const void* buf, size_t n_bytes)
+void ec_write(int fd, void* buf, size_t n_bytes)
 {
 	if (writen(fd, buf, n_bytes) < 0) {
 		fprintf(stderr, "[ERROR] in write(): %s\n", strerror(errno));
@@ -89,16 +90,16 @@ void send_message(int conn_fd, int sender_fd, char *message, ...)
 
 	va_start(ap, message);
 
-	if (sender_fd != -1) /* relay */
+	if (sender_fd != -1) { /* relay */
 		if (get_client_prefix(sender_fd, sender_buffer) < 0) {
 			printf("Error identifying sender. Invalid file descriptor.\n");
 			return;
 		}
-	else
+	} else
 		gethostname(sender_buffer, 50);
 
 	vsnprintf(content_buffer, 200, message, ap);
-	snprintf(message_buffer, 256, ":%s %s\r\n", sender_buffer, content);
+	snprintf(message_buffer, 256, ":%s %s\r\n", sender_buffer, content_buffer);
 	
 	ec_write(conn_fd, message_buffer, strlen(message_buffer));
 

@@ -1,10 +1,13 @@
+#include <string.h>
+#include <stdlib.h>
+
 #include "network_io.h"
 #include "client.h"
 #include "channel.h"
-#include "errors.h"
+#include "replies.h"
 
 struct command {
-	char cmd[10];
+	const char *cmd;
 	void (*cmd_cb)(int fd, int argc, char **args);
 };
 
@@ -14,7 +17,7 @@ static void handle_user(int fd, int argc, char **args);
 static void handle_join(int fd, int argc, char **args);
 static void handle_part(int fd, int argc, char **args);
 
-static struct command commands = {
+static struct command commands[] = {
 				  {.cmd = "PASS", .cmd_cb = handle_pass},
 				  {.cmd = "NICK", .cmd_cb = handle_nick},
 				  {.cmd = "USER", .cmd_cb = handle_user},
@@ -29,7 +32,7 @@ void handle_command(int fd, int argc, char **args)
 	int i;
 
 	for (i = 0; i < n_commands; i++) {
-		if (strcmp(args[0], commands[i].cmds) == 0) {
+		if (strcmp(args[0], commands[i].cmd) == 0) {
 			commands[i].cmd_cb(fd, argc, args);
 			break;
 		}
@@ -84,11 +87,14 @@ static void handle_user(int fd, int argc, char **args)
 	if (argc < 5)
 		rv = ERR_NEEDMOREPARAMS;
 
-	rv = set_user(fd, args[1], args[2], args[4]); 	
+	rv = set_user(fd, args[1], atoi(args[2]), args[4]); 	
 	
 	switch (rv) {
 		case ERR_NEEDMOREPARAMS:
 			send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]);
+			break;
+		case ERR_ALREADYREGISTERED:
+			send_message(fd, -1, "%d :Unauthorized command (already registered)", ERR_ALREADYREGISTERED);
 			break;
 	}
 }
@@ -112,7 +118,7 @@ static void handle_join(int fd, int argc, char **args)
 		bufp++;
 	}
 
-	bufp = args[1]
+	bufp = args[1];
 	for (i = 0; i < n; i++) {
 		join_channel(bufp, fd);
 		

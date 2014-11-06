@@ -1,16 +1,9 @@
 #include <stdlib.h>
+#include <string.h>
 #include "network_io.h"
 #include "channel.h"
 #include "client.h"
 #include "replies.h"
-
-struct channel {
-	char name[20];
-	char topic[100];
-	struct client *joined_users[MAX_JOIN];
-	int n_joined; 
-	unsigned int mode; /*bit mask representing private/secret/invite-only/topic/moderated/ */
-};
 
 struct channel channels[MAX_CHANNELS];
 
@@ -38,7 +31,6 @@ static int add_channel(char *chan_name)
 	if (i == MAX_CHANNELS)
 		return -1;
 
-	channels[i].used = 1;
 	strncpy(channels[i].name, chan_name, 20);
 
 	n_channels++;
@@ -62,16 +54,6 @@ static void remove_inactive_channels(int n)
 	}
 }
 
-static void relay_user_quit(struct channel *chan, int cli_fd, char *quit_message)
-{
-	int i;
-
-	for (i = 0; i < MAX_JOIN; i++) {
-		if (chan->joined_users[i] != NULL)
-			send_message(chan->joined_users[i]->fd, cli_fd, "QUIT :%s", quit_message);
-	}
-}
-
 static void send_channel_greeting(struct channel *chan, int cli_fd)
 {
 	char topic[400];
@@ -90,7 +72,7 @@ static void send_channel_greeting(struct channel *chan, int cli_fd)
 			n += strlen(chan->joined_users[i]->nick);
 			
 			if (n >= 379) { /* if maximum capacity reached, send what we have so far */
-				send_message(cli_fd, -1, "%d = %s :%s", RPL_NAMEREPLY, chan->name, user_list);
+				send_message(cli_fd, -1, "%d = %s :%s", RPL_NAMREPLY, chan->name, user_list);
 				memset(user_list, 0x00, 400);
 				n = 0;
 			}
@@ -100,12 +82,42 @@ static void send_channel_greeting(struct channel *chan, int cli_fd)
 	send_message(cli_fd, -1, "%d %s :End of /NAMES list", RPL_ENDOFNAMES, chan->name);
 }
 
+void relay_user_quit(struct channel *chan, int cli_fd, char *quit_message)
+{
+	int i;
+
+	for (i = 0; i < MAX_JOIN; i++) {
+		if (chan->joined_users[i] != NULL)
+			send_message(chan->joined_users[i]->fd, cli_fd, "QUIT :%s", quit_message);
+	}
+}
+
+void relay_user_message(char *chan_name, int cli_fd, char *message)
+{
+	int i, j;	
+
+	for (i = 0; i < MAX_CHANNELS; i++) {
+		if (strcmp(channels[i].name, chan_name) == 0)
+			break;
+	}
+
+	if (i == MAX_CHANNELS) {
+		send_message(cli_fd, -1, "%d %s :No such nick/channel", ERR_NOSUCHNICK, chan_name);
+		return;
+	}
+
+	for (j = 0; j < MAX_JOIN; j++) {
+		if (channels[i].joined_users[j] != NULL)
+			send_message(channels[i].joined_users[j]->fd, cli_fd, "PRIVMSG :%s", message);
+	}
+}
+
 void join_channel(char *chan_name, int cli_fd)
 {
 	int i, j, k;
 
 	for (i = 0; i < MAX_CHANNELS; i++) {
-		if (strcmp(channel[i].name, chan_name) == 0)
+		if (strcmp(channels[i].name, chan_name) == 0)
 			break;
 	}
 
@@ -154,7 +166,7 @@ void part_user(char *chan_name, int cli_fd)
 	struct client *cli;
 
 	for (i = 0; i < MAX_CHANNELS; i++) {
-		if (strcmp(channel[i].name, chan_name) == 0)
+		if (strcmp(channels[i].name, chan_name) == 0)
 			break;
 	}
 
@@ -164,7 +176,7 @@ void part_user(char *chan_name, int cli_fd)
 	}
 
 	for (j = 0; j < MAX_JOIN; i++) {
-		if((channels[i].joined_users[j] != NULL) && (cli_fd == channels[i].joined_users[j]))
+		if((channels[i].joined_users[j] != NULL) && (cli_fd == channels[i].joined_users[j]->fd))
 			break;
 	}
 
