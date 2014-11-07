@@ -9,6 +9,7 @@
 #include "client.h"
 #include "replies.h"
 #include "network_io.h"
+#include "channel.h"
 
 #define NICK_REGISTERED 2
 #define USER_REGISTERED 1
@@ -213,6 +214,6 @@ void send_to_all_channels(int cli_fd, char *message)
 
 	for (i = 0; i < MAX_CHAN_JOIN; i++) {
 		if (cli->joined_channels[i] != NULL)
-			relay_message(cli->joined_channels[i]->name, 
-
-
+			relay_message(cli->joined_channels[i], cli->fd, message);
+	}
+}

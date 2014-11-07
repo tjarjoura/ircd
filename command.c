@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
 #include "network_io.h"
 #include "client.h"
@@ -12,6 +13,7 @@ struct command {
 	void (*cmd_cb)(int fd, int argc, char **args);
 };
 
+static void handle_ping(int fd, int argc, char **args);
 static void handle_pass(int fd, int argc, char **args);
 static void handle_nick(int fd, int argc, char **args);
 static void handle_user(int fd, int argc, char **args);
@@ -19,6 +21,7 @@ static void handle_join(int fd, int argc, char **args);
 static void handle_part(int fd, int argc, char **args);
 
 static struct command commands[] = {
+				  {.cmd = "PING", .cmd_cb = handle_ping},
 				  {.cmd = "PASS", .cmd_cb = handle_pass},
 				  {.cmd = "NICK", .cmd_cb = handle_nick},
 				  {.cmd = "USER", .cmd_cb = handle_user},
@@ -26,7 +29,7 @@ static struct command commands[] = {
 				  {.cmd = "PART", .cmd_cb = handle_part}
 };
 
-static int n_commands = 5;
+static int n_commands = 6;
 
 void handle_command(int fd, int argc, char **args)
 {
@@ -44,6 +47,20 @@ void handle_command(int fd, int argc, char **args)
 	if (i == n_commands)
 		send_message(fd, -1, "%d %s %s :Unknown command", ERR_UNKNOWNCOMMAND, cli->nick, args[0]);
 }	
+
+static void handle_ping(int fd, int argc, char **args)
+{
+	char addr_buffer[30];
+
+	struct sockaddr_in server_addr;
+	socklen_t addrlen = sizeof(struct sockaddr);
+
+	getsockname(fd, (struct sockaddr *) &server_addr, &addrlen);
+
+	inet_ntop(AF_INET, &(server_addr.sin_addr), addr_buffer, 30);
+
+	send_message(fd, -1, "PONG %s", addr_buffer); 	
+}
 
 static void handle_pass(int fd, int argc, char **args) 
 {
@@ -108,7 +125,9 @@ static void handle_user(int fd, int argc, char **args)
 static void handle_join(int fd, int argc, char **args)
 {
 	struct client *cli = get_client(fd);
-	
+	struct channel *chan;
+	char message_buffer[450];
+
 	if (argc < 2) {
 		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
 		return;
@@ -128,8 +147,15 @@ static void handle_join(int fd, int argc, char **args)
 
 	bufp = args[1];
 	for (i = 0; i < n; i++) {
-		join_channel(bufp, fd);
-		
+		if ((chan = get_channel(bufp)) == NULL) {
+			if ((chan = new_channel(bufp)) == NULL) {
+				send_message(fd, -1, "%d %s %s :No such channel/Too many channels", ERR_NOSUCHCHANNEL, cli->nick, args[0]);
+				return;
+			}
+		}
+
+		join_channel(chan, cli);
+
 		/* advance to next channel name */
 		while (*bufp != '\0') bufp++;
 		bufp++;
@@ -139,6 +165,8 @@ static void handle_join(int fd, int argc, char **args)
 static void handle_part(int fd, int argc, char **args)
 {
 	struct client *cli = get_client(fd);
+	struct channel *chan;
+	char message_buffer[450];
 
 	if (argc < 2) {
 		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
@@ -160,7 +188,14 @@ static void handle_part(int fd, int argc, char **args)
 	bufp = args[1];
 
 	for (i = 0; i < n; i++) {
-		part_user(bufp, fd);
+		if ((chan = get_channel(bufp)) == NULL) {
+			send_message(fd, -1, "%d %s %s :No such channel", ERR_NOSUCHCHANNEL, cli->nick, args[0]);
+			return;
+		}
+
+		part_user(chan, cli);
+
+		snprintf(message_buffer, 450, "%s %s", args[0], bufp);
 
 		/* advance to next channel name */
 		while (*bufp != '\0') bufp++;
