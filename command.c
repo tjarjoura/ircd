@@ -148,7 +148,6 @@ static void handle_part(int fd, int argc, char **args)
 {
 	struct client *cli = get_client(fd);
 	struct channel *chan;
-	char message_buffer[450];
 
 	if (argc < 2) {
 		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
@@ -156,7 +155,7 @@ static void handle_part(int fd, int argc, char **args)
 	}
 
 	char *bufp = args[1];
-	int i, n = 0;
+	int i, n = 1;
 
 	while (*bufp != '\0') {
 		if (*bufp == ',') {
@@ -177,10 +176,56 @@ static void handle_part(int fd, int argc, char **args)
 
 		part_user(chan, cli);
 
-		snprintf(message_buffer, 450, "%s %s", args[0], bufp);
-
 		/* advance to next channel name */
 		while (*bufp != '\0') bufp++;
 		bufp++;
 	}
+}
+
+static void handle_privmsg(int fd, int argc, char **args)
+{
+	struct client  *cli = get_client(fd);
+	struct channel *target_chan;
+	struct client *target_cli;
+
+	char *bufp = args[1];
+	int i, n = 1;
+	int is_channel = 0;
+
+	if (argc < 3) {
+		send_message(fd, -1, "%d %s :No text to send", ERR_NOTEXTTOSEND, cli->nick);
+		return;
+	}
+
+	if (argc < 2) {
+		send_message(fd, -1, "%d %s :No recipient given (PRIVMSG)", ERR_NORECIPIENT, cli->nick);
+		return;
+	}
+
+	while (*bufp != '\0') {
+		if (*bufp == ',') {
+			n++;
+			*bufp = '\0';
+		}
+		
+		bufp++;
+	}
+
+	bufp = args[1];
+
+	for (i = 0; i < n; i++) {
+		if ((target_chan = get_channel(bufp)) == NULL) {
+			if ((target_cli = get_client(bufp)) == NULL) {
+				send_message(fd, -1, "%d %s %s :No such nick/channel", ERR_NOSUCHNICK, cli->fd, bufp);
+				return;
+			}
+			is_channel = 0;
+		}
+
+		if (is_channel)
+		
+	}
+	
+		
+
 }

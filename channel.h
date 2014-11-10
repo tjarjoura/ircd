@@ -23,4 +23,5 @@ int kick_user(char *chan_name, int cli_fd);
 int set_topic(char* chan_name, int cli_fd);
 void relay_message(struct channel *chan, int cli_fd, char *message);
 
+int in_channel(struct channel *chan, int cli_fd);
 #endif

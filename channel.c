@@ -20,6 +20,11 @@ void initialize_channels()
 		channels[i].n_joined = -1;
 }
 
+int in_channel(struct channel *chan, int cli_fd)
+{
+
+}
+
 struct channel *get_channel(char *chan_name)
 {
 	int i;
@@ -150,30 +155,30 @@ void join_channel(struct channel *chan, struct client *cli)
 
 void part_user(struct channel *chan, struct client *cli)
 {
-	int i, j;
+	int i;
+	char message_buffer[50];
 
-	for (j = 0; j < MAX_JOIN; i++) {
-		if((chan->joined_users[j] != NULL) && (cli->fd == chan->joined_users[j]->fd))
+	/* find the spot in the joined users array where the client is */
+
+	for (i = 0; i < MAX_JOIN; i++) {
+		if((chan->joined_users[i] != NULL) && (cli->fd == chan->joined_users[i]->fd))
 			break;
 	}
 
-	if (j == MAX_JOIN) {
+	if (i == MAX_JOIN) {
 		send_message(cli->fd, -1, "%d %s %s :You are not on that channel", ERR_NOTONCHANNEL, cli->nick, chan->name);
 		return;	
 	}
 
-	chan->joined_users[j] = NULL;
+	snprintf(message_buffer, 50, "PART %s", chan->name);
+	relay_message(chan, cli->fd, message_buffer);
 
-	for (j = 0; j < MAX_CHAN_JOIN; j++) {
-		if (strcmp(cli->joined_channels[j]->name, chan->name) == 0) {
-			cli->joined_channels[j] = NULL;
+	chan->joined_users[i] = NULL;
+
+	for (i = 0; i < MAX_CHAN_JOIN; i++) {
+		if (strcmp(cli->joined_channels[i]->name, chan->name) == 0) {
+			cli->joined_channels[i] = NULL;
 			break;
 		}
 	}
-
-	/* rellayyyyy */
-	for (j = 0; j < MAX_JOIN; j++) {
-	       if (chan->joined_users[j] != NULL)
-			send_message(chan->joined_users[j]->fd, cli->fd, "PART %s", chan->name);
-	}	    
 }	

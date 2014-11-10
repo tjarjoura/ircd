@@ -102,6 +102,9 @@ int set_nick(struct client *cli, char *nick)
 		if (clients[i].nick[0] && (strncmp(nick, clients[i].nick, 20) == 0))
 			return ERR_NICKNAMEINUSE;
 	
+	cli->registered |= NICK_REGISTERED;
+	strncpy(cli->nick, nick, 20);
+
 	/* if nick and user are both set, then mark this client as registered */
 	if (cli->registered == 3 && !cli->welcomed) {
 		send_welcome(cli);
@@ -159,6 +162,7 @@ void send_welcome(struct client *cli)
 	send_message(cli->fd, -1, "%d %s :End of /MOTD command", RPL_ENDOFMOTD, cli->nick);
 }
 
+/* get client by file descriptor */
 struct client *get_client(int cli_fd)
 {
 	int i;
@@ -167,7 +171,19 @@ struct client *get_client(int cli_fd)
 	        if (clients[i].fd == cli_fd)
 	       		return &clients[i];
 
-	printf("get_client(): No client for file descriptor %d was found\n", cli_fd);
+	return NULL;
+}
+
+/* get client by nick name */
+struct client *get_client_nick(char *nick)
+{
+	int i;
+
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		if (strncmp(clients[i].nick, nick, 20) == 0)
+			return &clients[i];
+	}
+
 	return NULL;
 }
 

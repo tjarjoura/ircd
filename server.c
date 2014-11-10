@@ -172,6 +172,9 @@ static void handle_packet(int cli_fd, char *read_buffer, int n)
 	char **args;
 	char *bufp;
 
+	char quit_message[250];
+	struct client *cli;
+
 	for (i = 0; i < n; i++) {
 		if (read_buffer[i] == '\r' && read_buffer[i+1] == '\n') {
 			packets++;
@@ -184,6 +187,10 @@ static void handle_packet(int cli_fd, char *read_buffer, int n)
 		argc = parse_args(bufp, &args);
 		
 		if (strcmp(args[0], "QUIT") == 0) {
+			cli = get_client(cli_fd);
+			snprintf(quit_message, 250, "QUIT :%s\n", args[1]);
+			send_to_all(cli, quit_message);
+
 			remove_client(cli_fd);
 			remove_descriptor(cli_fd);
 			close(cli_fd);
@@ -231,7 +238,7 @@ int main(int argc, char **argv)
 					}
 				} else { /* message sent from client */
 					n = ec_read(sock_fd, read_buffer, 512);
-					
+
 					if (n == 0) { /* client closed connection */ 
 						remove_descriptor(sock_fd);
 						remove_client(sock_fd);
