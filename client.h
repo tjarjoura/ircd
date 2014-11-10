@@ -28,11 +28,12 @@ void initialize_clients();
 
 int new_client(int conn_fd);
 int remove_client(int conn_fd);
-int set_pass(int conn_fd, char *pass);
-int set_nick(int conn_fd, char *nick);
-int set_user(int conn_fd, char *username, int mode, char *realname);
+int set_pass(struct client *cli, char *pass);
+int set_nick(struct client *cli, char *nick);
+int set_user(struct client *cli, char *username, int mode, char *realname);
 struct client *get_client(int conn_fd);
 int get_client_prefix(int cli_fd, char *sender_buffer);
 void send_welcome(struct client *cli);
+void send_to_all(struct client *cli, char *message);
 
 #endif

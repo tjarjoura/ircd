@@ -14,7 +14,6 @@ struct command {
 };
 
 static void handle_ping(int fd, int argc, char **args);
-static void handle_pass(int fd, int argc, char **args);
 static void handle_nick(int fd, int argc, char **args);
 static void handle_user(int fd, int argc, char **args);
 static void handle_join(int fd, int argc, char **args);
@@ -22,14 +21,13 @@ static void handle_part(int fd, int argc, char **args);
 
 static struct command commands[] = {
 				  {.cmd = "PING", .cmd_cb = handle_ping},
-				  {.cmd = "PASS", .cmd_cb = handle_pass},
 				  {.cmd = "NICK", .cmd_cb = handle_nick},
 				  {.cmd = "USER", .cmd_cb = handle_user},
 				  {.cmd = "JOIN", .cmd_cb = handle_join},
 				  {.cmd = "PART", .cmd_cb = handle_part}
 };
 
-static int n_commands = 6;
+static int n_commands = 5;
 
 void handle_command(int fd, int argc, char **args)
 {
@@ -62,23 +60,6 @@ static void handle_ping(int fd, int argc, char **args)
 	send_message(fd, -1, "PONG %s", addr_buffer); 	
 }
 
-static void handle_pass(int fd, int argc, char **args) 
-{
-	int rv;
-	struct client *cli = get_client(fd);
-
-	if (argc < 2)
-		rv = ERR_NEEDMOREPARAMS;
-	else
-		rv = set_pass(fd, args[1]);
-	
-	switch (rv) {
-		case ERR_NEEDMOREPARAMS:
-			send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
-			break;
-	}
-}
-
 static void handle_nick(int fd, int argc, char **args)
 {
 	int rv;
@@ -86,8 +67,10 @@ static void handle_nick(int fd, int argc, char **args)
 
 	if (argc < 2)
 		rv = ERR_NONICKNAMEGIVEN;
+	else if (cli == NULL)
+		return;
 	else
-		rv = set_nick(fd, args[1]);
+		rv = set_nick(cli, args[1]);
 
 	switch (rv) {
 		case ERR_ERRONEUSNICKNAME:
@@ -110,7 +93,7 @@ static void handle_user(int fd, int argc, char **args)
 	if (argc < 5)
 		rv = ERR_NEEDMOREPARAMS;
 
-	rv = set_user(fd, args[1], atoi(args[2]), args[4]); 	
+	rv = set_user(cli, args[1], atoi(args[2]), args[4]); 	
 
 	switch (rv) {
 		case ERR_NEEDMOREPARAMS:
@@ -126,7 +109,6 @@ static void handle_join(int fd, int argc, char **args)
 {
 	struct client *cli = get_client(fd);
 	struct channel *chan;
-	char message_buffer[450];
 
 	if (argc < 2) {
 		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);

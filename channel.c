@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "network_io.h"
@@ -94,7 +95,7 @@ static void send_channel_greeting(struct channel *chan, struct client *cli)
 	}
 
 	if (n > 0)
-		send_message(cli->fd, -1, "%d %s = #%s :%s", RPL_NAMREPLY, cli->nick, chan->name, user_list);
+		send_message(cli->fd, -1, "%d %s = %s :%s", RPL_NAMREPLY, cli->nick, chan->name, user_list);
 
 	send_message(cli->fd, -1, "%d %s %s :End of /NAMES list", RPL_ENDOFNAMES, cli->nick, chan->name);
 }

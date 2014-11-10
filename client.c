@@ -93,82 +93,46 @@ int remove_client(int cli_fd)
 	return 0;
 }
 
-int set_pass(int cli_fd, char *pass)
+int set_nick(struct client *cli, char *nick)
 {
 	int i;
-
-	for (i = 0; i < MAX_CLIENTS; i++)
-		if (clients[i].fd == cli_fd) {
-			strncpy(clients[i].pass, pass, 20);
-			break;
-		}
-
-	if (i == MAX_CLIENTS) {
-		printf("No client for fd %d was found.\n", cli_fd);
-		return -1;
-	}
-
-	return 0;
-}
-
-int set_nick(int cli_fd, char *nick)
-{
-	int i;
+	char message_buffer[100];
 
 	for (i = 0; i < MAX_CLIENTS; i++)
 		if (clients[i].nick[0] && (strncmp(nick, clients[i].nick, 20) == 0))
 			return ERR_NICKNAMEINUSE;
-
-	for (i = 0; i < MAX_CLIENTS; i++)
-		if (clients[i].fd == cli_fd) {
-			strncpy(clients[i].nick, nick, 20);
-			break;
-		}
-
-	if (i == MAX_CLIENTS) {
-		printf("No client for fd %d was found.\n", cli_fd);
-		return -1;
-	}
-
-	clients[i].registered |= NICK_REGISTERED;
-
+	
 	/* if nick and user are both set, then mark this client as registered */
-	if (clients[i].registered == 3 && !clients[i].welcomed) {
-		send_welcome(&clients[i]);
-		clients[i].welcomed = 1;
+	if (cli->registered == 3 && !cli->welcomed) {
+		send_welcome(cli);
+		cli->welcomed = 1;
+	} else if (cli->welcomed) {
+		snprintf(message_buffer, 100, "NICK %s", nick);
+		send_to_all(cli, message_buffer);
 	}
+
+	cli->registered |= NICK_REGISTERED;
+	strncpy(cli->nick, nick, 20);
 
 	return 0;
 }
 
-int set_user(int cli_fd, char *username, int mode, char *realname)
+int set_user(struct client *cli, char *username, int mode, char *realname)
 {
-	int i;
-
-	for (i = 0; i < MAX_CLIENTS; i++) {
-		if (clients[i].fd == cli_fd) 
-			break;
-	}
-
-	if (i == MAX_CLIENTS) {
-		printf("No client for fd %d was found.\n", cli_fd);
-		return -1;
-	}
-
-	if (clients[i].registered & USER_REGISTERED)
+	if (cli->registered & USER_REGISTERED)
 		return ERR_ALREADYREGISTERED;
 
-	clients[i].registered |= USER_REGISTERED;
+	cli->registered |= USER_REGISTERED;
 	
-	strncpy(clients[i].user, username, 20);
+	strncpy(cli->user, username, 20);
 	
-	strncpy(clients[i].realname, realname, 30);
-	clients[i].mode |= mode;
+	strncpy(cli->realname, realname, 30);
+	cli->mode |= mode;
 
 	/* if nick and user are both set, then mark this client as registered. 3 = both bits set */
-	if (clients[i].registered == 3 && !clients[i].welcomed) {
-		send_welcome(&clients[i]);
-		clients[i].welcomed = 1;
+	if (cli->registered == 3 && !cli->welcomed) {
+		send_welcome(cli);
+		cli->welcomed = 1;
 	}
 
 	return 0;
@@ -207,11 +171,11 @@ struct client *get_client(int cli_fd)
 	return NULL;
 }
 
-void send_to_all_channels(int cli_fd, char *message)
+void send_to_all(struct client *cli, char *message)
 {
 	int i;
-	struct client *cli = get_client(cli_fd);
-
+	
+	send_message(cli->fd, cli->fd, message);
 	for (i = 0; i < MAX_CHAN_JOIN; i++) {
 		if (cli->joined_channels[i] != NULL)
 			relay_message(cli->joined_channels[i], cli->fd, message);
