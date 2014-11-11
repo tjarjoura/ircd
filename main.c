@@ -12,6 +12,7 @@
 
 #include "command.h"
 #include "channel.h"
+#include "channel_stat.h"
 #include "client.h"
 #include "network_io.h"
 #include "global.h"
@@ -37,6 +38,7 @@ static void initialize()
 	initialize_global_stat();	
 	initialize_clients();
 	initialize_channels();
+	initialize_channel_stat();
 }
 
 static int add_descriptor(int fd)

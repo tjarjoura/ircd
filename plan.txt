@@ -3,9 +3,9 @@ New organizational plan:
 command.c -- accessed by main loop, still employs an array of struct commands and calls the appropriate callback
 	     now contains a function to add in callbacks
 
-client.c -- registers handlers for the following commands: NICK, USER, MODE, QUIT(maybe), PASS(if ever implemented), OPER(maybe in stat)
-client_stat.c -- registers handlers for the following commands: WHO, WHOIS, WHOWAS (low priority)
-channel.c -- registers handlers for JOIN, PART, INVITE, KICK
-channel_stat.c -- registers handlers for TOPIC, NAMES
-server -- registers handlers for OPER, QUIT, PRIVMSG, PING
-server_stat -- registers handlers for MOTD, VERSION, LUSERS, LIST, INFO
+X client.c -- registers handlers for the following commands: NICK, USER, MODE, PASS(if ever implemented), OPER(maybe in stat)
+O client_stat.c -- registers handlers for the following commands: WHO, WHOIS, WHOWAS (low priority)
+O channel.c -- registers handlers for JOIN, PART, INVITE, KICK
+O channel_stat.c -- registers handlers for TOPIC, NAMES
+X server -- registers handlers for OPER, QUIT, PRIVMSG, PING
+O server_stat -- registers handlers for MOTD, VERSION, LUSERS, LIST, INFO

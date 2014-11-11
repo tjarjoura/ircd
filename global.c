@@ -54,7 +54,7 @@ static void handle_privmsg(int fd, int argc, char **args)
 	for (i = 0; i < n; i++) {
 		if ((target_chan = get_channel(bufp)) == NULL) {
 			if ((target_cli = get_client_nick(bufp)) == NULL) {
-				send_message(fd, -1, "%d %s %s :No such nick/channel", ERR_NOSUCHNICK, cli->fd, bufp);
+				send_message(fd, -1, "%d %s %s :No such nick/channel", ERR_NOSUCHNICK, cli->nick, bufp);
 				continue;
 			}
 
@@ -62,7 +62,7 @@ static void handle_privmsg(int fd, int argc, char **args)
 		}
 
 		if (is_channel && !in_channel(target_chan, cli->fd)) {
-			send_message(fd, -1, "%d %s :Cannot send to channel", ERR_CANNOTSENDTOCHAN, bufp);
+			send_message(fd, -1, "%d %s %s :Cannot send to channel", ERR_CANNOTSENDTOCHAN, cli->nick, bufp);
 			continue;
 		}
 
