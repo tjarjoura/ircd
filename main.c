@@ -14,7 +14,8 @@
 #include "channel.h"
 #include "client.h"
 #include "network_io.h"
-#include "stat.h"
+#include "global.h"
+#include "global_stat.h"
 
 #define LISTENPORT 6667
 #define LISTENMAX 4
@@ -32,7 +33,8 @@ static void initialize()
 	for (i = 0; i < (MAX_CLIENTS + 1); i++)
 		input_fds[i] = -1;
 
-	initialize_stat();	
+	initialize_global();
+	initialize_global_stat();	
 	initialize_clients();
 	initialize_channels();
 }
@@ -167,7 +169,6 @@ static void handle_packet(int cli_fd, char *read_buffer, int n)
 	int argc; 
 	char **args;
 	char *bufp;
-	struct client *cli;
 
 	for (i = 0; i < n; i++) {
 		if (read_buffer[i] == '\r' && read_buffer[i+1] == '\n') {
@@ -181,10 +182,7 @@ static void handle_packet(int cli_fd, char *read_buffer, int n)
 		argc = parse_args(bufp, &args);
 		
 		if (strcmp(args[0], "QUIT") == 0) {
-			cli = get_client(cli_fd);
-			send_to_all_visible(cli, "QUIT %s", args[1]);
-
-			remove_client(cli_fd);
+			user_quit(cli_fd, args[1]);
 			remove_descriptor(cli_fd);
 			close(cli_fd);
 		} else
@@ -233,8 +231,8 @@ int main(int argc, char **argv)
 					n = ec_read(sock_fd, read_buffer, 512);
 
 					if (n == 0) { /* client closed connection */ 
+						user_quit(sock_fd, ":Client closed connection"); 
 						remove_descriptor(sock_fd);
-						remove_client(sock_fd);
 						close(sock_fd);
 					} else
 						handle_packet(sock_fd, read_buffer, n);

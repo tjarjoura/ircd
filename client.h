@@ -3,12 +3,14 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <time.h>
 
 #define MAX_CLIENTS 100
 #define MAX_CHAN_JOIN 5
 
 struct client {
-	char pass[20];
+	time_t last_activity;
+
 	char user[20];
 	char nick[20];
 	char realname[30];
@@ -30,9 +32,6 @@ void initialize_clients();
 
 int new_client(int conn_fd);
 int remove_client(int conn_fd);
-int set_pass(struct client *cli, char *pass);
-int set_nick(struct client *cli, char *nick);
-int set_user(struct client *cli, char *username, int mode, char *realname);
 
 struct client *get_client(int conn_fd);
 struct client *get_client_nick(char *nick);

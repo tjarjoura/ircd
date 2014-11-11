@@ -2,7 +2,7 @@
 #include <arpa/inet.h>
 
 #include "replies.h"
-#include "stat.h"
+#include "global_stat.h"
 #include "network_io.h"
 
 const char *server_version = "devel";
@@ -10,7 +10,7 @@ const char *motd = "This IRC server was written by Tyler Jarjoura";
 
 time_t server_start_time;
 
-void initialize_stat()
+void initialize_global_stat()
 {
 	server_start_time = time(NULL);
 }	

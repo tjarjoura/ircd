@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include "stat.h"
+#include "command.h"
+#include "global_stat.h"
 #include "client.h"
 #include "replies.h"
 #include "network_io.h"
@@ -16,16 +18,6 @@
 
 struct client clients[MAX_CLIENTS];
 int n_clients = 0;
-
-void initialize_clients()
-{
-	int i;
-
-	memset(clients, 0x00, sizeof(struct client) * MAX_CLIENTS);
-
-	for (i = 0; i < MAX_CLIENTS; i++)
-		clients[i].fd = -1;
-}
 
 int new_client(int cli_fd)
 {
@@ -116,50 +108,96 @@ int get_client_prefix(int cli_fd, char *sender_buffer)
 	return 0;
 }
 
-int set_nick(struct client *cli, char *nick)
+static int is_erroneus(char *nick)
 {
 	int i;
-	char message_buffer[100];
 
-	for (i = 0; i < MAX_CLIENTS; i++)
-		if (clients[i].nick[0] && (strncmp(nick, clients[i].nick, 20) == 0))
-			return ERR_NICKNAMEINUSE;
+	if (isdigit(nick[0]))
+		return 1;
+
+	char allowed[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-\\[]{}^|";
+
+	for (i = 0; nick[i] != '\0'; i++) {
+		if (!strchr(allowed, nick[i]))
+			return 1;
+	}
+
+	return 0;
+}
+
+static void set_nick(int fd, int argc, char **args)
+{
+	int i;
+	struct client *cli = get_client(fd);
+
+	if (argc < 2) {
+		send_message(fd, -1, "%d :No nickname was given", ERR_NONICKNAMEGIVEN);
+		return;
+	}
+
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		if (clients[i].nick[0] && (strncmp(args[1], clients[i].nick, 20) == 0)) {
+			send_message(fd, -1, "%d %s :Nickname is already in use", ERR_NICKNAMEINUSE, args[1]);
+			return;
+		}
+	}
+
+	if (is_erroneus(args[1])) {
+		send_message(fd, -1, "%d %s :Erroneous nickname", ERR_ERRONEUSNICKNAME, args[1]);
+		return;
+	}
 	
 	cli->registered |= NICK_REGISTERED;
 
-	if (cli->welcomed) {
-		snprintf(message_buffer, 100, "NICK %s", nick);
-		send_to_all_visible(cli, message_buffer);
-	}
+	if (cli->welcomed) 
+		send_to_all_visible(cli, "NICK %s", args[1]);
 
-	strncpy(cli->nick, nick, 20);
+	strncpy(cli->nick, args[1], 20);
 	
 	/* if nick and user are both set, then mark this client as registered */
 	if (cli->registered == 3 && !cli->welcomed) {
 		send_welcome(cli);
 		cli->welcomed = 1;
 	}
-
-	return 0;
 }
 
-int set_user(struct client *cli, char *username, int mode, char *realname)
+static void set_user(int fd, int argc, char **args)
 {
-	if (cli->registered & USER_REGISTERED)
-		return ERR_ALREADYREGISTERED;
+	struct client *cli = get_client(fd);
+
+	if (argc < 5) {
+		send_message(fd, -1, "%d %s :Not enough parameters", ERR_NEEDMOREPARAMS, args[0]); 
+		return;
+	}
+
+	if (cli->registered & USER_REGISTERED) {
+		send_message(fd, -1, "%d :Unauthorized command (already registered", ERR_ALREADYREGISTERED);
+		return;
+	}
 
 	cli->registered |= USER_REGISTERED;
 	
-	strncpy(cli->user, username, 20);
+	strncpy(cli->user, args[1], 20);
 	
-	strncpy(cli->realname, realname, 30);
-	cli->mode |= mode;
+	strncpy(cli->realname, args[4], 30);
+	cli->mode |= atoi(args[2]);
 
 	/* if nick and user are both set, then mark this client as registered. 3 = both bits set */
 	if (cli->registered == 3 && !cli->welcomed) {
 		send_welcome(cli);
 		cli->welcomed = 1;
 	}
+}
 
-	return 0;
+void initialize_clients()
+{
+	int i;
+
+	memset(clients, 0x00, sizeof(struct client) * MAX_CLIENTS);
+
+	for (i = 0; i < MAX_CLIENTS; i++)
+		clients[i].fd = -1;
+
+	register_command("USER", set_user);
+	register_command("NICK", set_nick);
 }

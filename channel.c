@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "command.h"
 #include "network_io.h"
 #include "channel.h"
+#include "channel_stat.h"
 #include "client.h"
 #include "replies.h"
 
@@ -11,22 +13,12 @@ struct channel channels[MAX_CHANNELS];
 
 static int n_channels = 0;
 
-void initialize_channels()
-{
-	int i;
-
-	memset(&channels, 0x00, sizeof(struct channel) * MAX_CHANNELS);
-
-	for (i = 0; i < MAX_CHANNELS; i++)
-		channels[i].n_joined = -1;
-}
-
 int in_channel(struct channel *chan, int cli_fd)
 {
 	int i;
 
 	for (i = 0; i < MAX_JOIN; i++) {
-		if (chan->joined_users[i]->fd == cli_fd)
+		if ((chan->joined_users[i] != NULL) && (chan->joined_users[i]->fd == cli_fd))
 			return 1;
 	}
 
@@ -83,40 +75,7 @@ static void remove_inactive_channels(int n)
 	}
 }
 
-static void send_channel_greeting(struct channel *chan, struct client *cli)
-{
-	char user_list[400];
-	
-	int i, n = 0;
-
-	if (chan->topic[0] != '\0') 
-		send_message(cli->fd, -1, "%d %s %s: %s", RPL_TOPIC, cli->nick, chan->name, chan->topic);	
-
-	memset(user_list, 0x00, 400);
-
-	for (i = 0; i < MAX_JOIN; i++) {
-		if (chan->joined_users[i] != NULL) {
-			strncat(user_list, chan->joined_users[i]->nick, 20);
-			strncat(user_list, " ", 1);
-			n += strlen(chan->joined_users[i]->nick + 1);
-			
-			if (n >= 379) { /* if maximum capacity reached, send what we have so far */
-				send_message(cli->fd, -1, "%d %s = %s :%s", RPL_NAMREPLY, cli->nick, chan->name, user_list);
-				memset(user_list, 0x00, 400);
-				n = 0;
-			}
-		}
-	}
-
-	if (n > 0) {
-		send_message(cli->fd, -1, "%d %s = %s :%s", RPL_NAMREPLY, cli->nick, chan->name, user_list);
-		memset(user_list, 0x00, 400);
-	}
-
-	send_message(cli->fd, -1, "%d %s %s :End of /NAMES list", RPL_ENDOFNAMES, cli->nick, chan->name);
-}
-
-void join_channel(struct channel *chan, struct client *cli)
+static void join_channel(struct channel *chan, struct client *cli)
 {
 	int i, j;
 
@@ -173,7 +132,106 @@ void part_user(struct channel *chan, struct client *cli)
 	for (i = 0; i < MAX_CHAN_JOIN; i++) {
 		if (strcmp(cli->joined_channels[i]->name, chan->name) == 0) {
 			cli->joined_channels[i] = NULL;
+			cli->n_joined--;
 			break;
 		}
 	}
-}	
+}
+
+static void handle_join(int fd, int argc, char **args)
+{
+	struct client *cli = get_client(fd);
+	struct channel *chan;
+	
+	if (argc < 2) {
+		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
+		return;
+	}
+
+	char *bufp = args[1];
+	int i, n = 1;
+
+	while (*bufp != '\0') { /* could be multiple channels passed to one command, they should be comma-separated */
+		if (*bufp == ',') {
+			*bufp = '\0';
+			n++;
+		}
+	
+		bufp++;
+	}
+
+	bufp = args[1];
+	for (i = 0; i < n; i++) {
+		if ((chan = get_channel(bufp)) == NULL) {
+			if ((chan = new_channel(bufp)) == NULL) {
+				send_message(fd, -1, "%d %s %s :No such channel/Too many channels", ERR_NOSUCHCHANNEL, cli->nick, args[0]);
+				return;
+			}
+		}
+		
+		if (in_channel(chan, cli->fd)) /* can't join a channel twice, but IRC specifies no error code for this */
+			continue;
+
+		/* Must be in this order */
+		send_message(cli->fd, cli->fd, "JOIN %s", bufp);
+		join_channel(chan, cli);
+		send_to_channel(chan, cli->fd, "JOIN %s", bufp);
+
+		/* advance to next channel name */
+		while (*bufp != '\0') bufp++;
+		bufp++;
+	}
+}
+
+static void handle_part(int fd, int argc, char **args)
+{
+	struct client *cli = get_client(fd);
+	struct channel *chan;
+
+	if (argc < 2) {
+		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
+		return;
+	}
+
+	char *bufp = args[1];
+	int i, n = 1;
+
+	while (*bufp != '\0') {
+		if (*bufp == ',') {
+			n++;
+			*bufp = '\0';
+		}
+
+		bufp++;
+	}
+
+	bufp = args[1];
+
+	for (i = 0; i < n; i++) {
+		if ((chan = get_channel(bufp)) == NULL) {
+			send_message(fd, -1, "%d %s %s :No such channel", ERR_NOSUCHCHANNEL, cli->nick, args[0]);
+			return;
+		}
+
+		send_message(cli->fd, cli->fd, "PART %s %s", bufp, args[2]);
+		part_user(chan, cli);
+		send_to_channel(chan, cli->fd, "PART %s %s", chan->name, args[2]);
+
+		/* advance to next channel name */
+		while (*bufp != '\0') bufp++;
+		bufp++;
+	}
+}
+
+void initialize_channels()
+{
+	int i;
+
+	memset(&channels, 0x00, sizeof(struct channel) * MAX_CHANNELS);
+
+	for (i = 0; i < MAX_CHANNELS; i++)
+		channels[i].n_joined = -1;
+
+	register_command("JOIN", handle_join);
+	register_command("PART", handle_part);
+}
