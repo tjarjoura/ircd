@@ -9,4 +9,5 @@ An implementation of (parts of) the irc server protocol written in C. Currently 
 5. Sending/receiving correctly formatted IRC messages over the network
 6. Join/part channels
 7. Quit command
-8. Welcome messages
+8. Privmsg command
+9. Welcome messages

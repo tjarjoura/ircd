@@ -77,18 +77,15 @@ int new_client(int cli_fd)
 int remove_client(int cli_fd)
 {
 	int i;
+	struct client *cli = get_client(cli_fd);
 
-	for (i = 0; i < MAX_CLIENTS; i++)
-		if (clients[i].fd == cli_fd)
-			break;
-
-	if (i == MAX_CLIENTS) {
-		printf("No client for fd %d was found.\n", cli_fd);
-		return -1;
+	for (i = 0; i < MAX_CHAN_JOIN; i++) {
+		if (cli->joined_channels[i] != NULL)
+			part_user(cli->joined_channels[i], cli);
 	}
 
-	memset(&clients[i], 0x00, sizeof(struct client));
-	clients[i].fd = -1;
+	memset(cli, 0x00, sizeof(struct client));
+	cli->fd = -1;
 
 	return 0;
 }
@@ -103,19 +100,19 @@ int set_nick(struct client *cli, char *nick)
 			return ERR_NICKNAMEINUSE;
 	
 	cli->registered |= NICK_REGISTERED;
-	strncpy(cli->nick, nick, 20);
 
-	/* if nick and user are both set, then mark this client as registered */
-	if (cli->registered == 3 && !cli->welcomed) {
-		send_welcome(cli);
-		cli->welcomed = 1;
-	} else if (cli->welcomed) {
+	if (cli->welcomed) {
 		snprintf(message_buffer, 100, "NICK %s", nick);
 		send_to_all(cli, message_buffer);
 	}
 
-	cli->registered |= NICK_REGISTERED;
 	strncpy(cli->nick, nick, 20);
+	
+	/* if nick and user are both set, then mark this client as registered */
+	if (cli->registered == 3 && !cli->welcomed) {
+		send_welcome(cli);
+		cli->welcomed = 1;
+	}
 
 	return 0;
 }

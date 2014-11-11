@@ -22,7 +22,14 @@ void initialize_channels()
 
 int in_channel(struct channel *chan, int cli_fd)
 {
+	int i;
 
+	for (i = 0; i < MAX_JOIN; i++) {
+		if (chan->joined_users[i]->fd == cli_fd)
+			return 1;
+	}
+
+	return 0;
 }
 
 struct channel *get_channel(char *chan_name)
@@ -110,7 +117,7 @@ void relay_message(struct channel *chan, int cli_fd, char *message)
 	int i;
 
 	for (i = 0; i < MAX_JOIN; i++) {
-		if (chan->joined_users[i] != NULL)
+		if ((chan->joined_users[i] != NULL) && (chan->joined_users[i]->fd != cli_fd))
 			send_message(chan->joined_users[i]->fd, cli_fd, message);
 	}
 }
@@ -118,7 +125,6 @@ void relay_message(struct channel *chan, int cli_fd, char *message)
 void join_channel(struct channel *chan, struct client *cli)
 {
 	int i, j;
-	char message_buffer[50];
 
 	if (cli->n_joined == MAX_CHAN_JOIN) {
 	        send_message(cli->fd, -1, "%d %s %s :You have joined too many channels", ERR_TOOMANYCHANNELS, cli->nick, chan->name);
@@ -147,19 +153,14 @@ void join_channel(struct channel *chan, struct client *cli)
 		return;
 	}
 
-	snprintf(message_buffer, 50, "JOIN %s", chan->name);
-	relay_message(chan, cli->fd, message_buffer);
-	
 	send_channel_greeting(chan, cli);
 }
 
 void part_user(struct channel *chan, struct client *cli)
 {
 	int i;
-	char message_buffer[50];
 
 	/* find the spot in the joined users array where the client is */
-
 	for (i = 0; i < MAX_JOIN; i++) {
 		if((chan->joined_users[i] != NULL) && (cli->fd == chan->joined_users[i]->fd))
 			break;
@@ -170,11 +171,9 @@ void part_user(struct channel *chan, struct client *cli)
 		return;	
 	}
 
-	snprintf(message_buffer, 50, "PART %s", chan->name);
-	relay_message(chan, cli->fd, message_buffer);
-
 	chan->joined_users[i] = NULL;
 
+	/* remove channel from the client list of joined_channels */
 	for (i = 0; i < MAX_CHAN_JOIN; i++) {
 		if (strcmp(cli->joined_channels[i]->name, chan->name) == 0) {
 			cli->joined_channels[i] = NULL;

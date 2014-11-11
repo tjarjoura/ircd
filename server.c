@@ -188,7 +188,7 @@ static void handle_packet(int cli_fd, char *read_buffer, int n)
 		
 		if (strcmp(args[0], "QUIT") == 0) {
 			cli = get_client(cli_fd);
-			snprintf(quit_message, 250, "QUIT :%s\n", args[1]);
+			snprintf(quit_message, 250, "QUIT %s\n", args[1]);
 			send_to_all(cli, quit_message);
 
 			remove_client(cli_fd);

@@ -18,16 +18,18 @@ static void handle_nick(int fd, int argc, char **args);
 static void handle_user(int fd, int argc, char **args);
 static void handle_join(int fd, int argc, char **args);
 static void handle_part(int fd, int argc, char **args);
+static void handle_privmsg(int fd, int argc, char **args);
 
 static struct command commands[] = {
 				  {.cmd = "PING", .cmd_cb = handle_ping},
 				  {.cmd = "NICK", .cmd_cb = handle_nick},
 				  {.cmd = "USER", .cmd_cb = handle_user},
 				  {.cmd = "JOIN", .cmd_cb = handle_join},
-				  {.cmd = "PART", .cmd_cb = handle_part}
+				  {.cmd = "PART", .cmd_cb = handle_part},
+				  {.cmd = "PRIVMSG", .cmd_cb = handle_privmsg}
 };
 
-static int n_commands = 5;
+static int n_commands = 6;
 
 void handle_command(int fd, int argc, char **args)
 {
@@ -109,7 +111,8 @@ static void handle_join(int fd, int argc, char **args)
 {
 	struct client *cli = get_client(fd);
 	struct channel *chan;
-
+	char message_buffer[50];
+	
 	if (argc < 2) {
 		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
 		return;
@@ -137,6 +140,10 @@ static void handle_join(int fd, int argc, char **args)
 		}
 
 		join_channel(chan, cli);
+		
+		snprintf(message_buffer, 50, "JOIN %s", chan->name);
+		send_message(cli->fd, cli->fd, message_buffer);
+		relay_message(chan, cli->fd, message_buffer);
 
 		/* advance to next channel name */
 		while (*bufp != '\0') bufp++;
@@ -148,6 +155,7 @@ static void handle_part(int fd, int argc, char **args)
 {
 	struct client *cli = get_client(fd);
 	struct channel *chan;
+	char message_buffer[50];
 
 	if (argc < 2) {
 		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
@@ -175,6 +183,9 @@ static void handle_part(int fd, int argc, char **args)
 		}
 
 		part_user(chan, cli);
+		
+		snprintf(message_buffer, 50, "PART %s", chan->name);
+		relay_message(chan, cli->fd, message_buffer);
 
 		/* advance to next channel name */
 		while (*bufp != '\0') bufp++;
@@ -187,10 +198,11 @@ static void handle_privmsg(int fd, int argc, char **args)
 	struct client  *cli = get_client(fd);
 	struct channel *target_chan;
 	struct client *target_cli;
+	char message_buffer[470];
 
 	char *bufp = args[1];
 	int i, n = 1;
-	int is_channel = 0;
+	int is_channel = 1;
 
 	if (argc < 3) {
 		send_message(fd, -1, "%d %s :No text to send", ERR_NOTEXTTOSEND, cli->nick);
@@ -215,17 +227,16 @@ static void handle_privmsg(int fd, int argc, char **args)
 
 	for (i = 0; i < n; i++) {
 		if ((target_chan = get_channel(bufp)) == NULL) {
-			if ((target_cli = get_client(bufp)) == NULL) {
+			if ((target_cli = get_client_nick(bufp)) == NULL) {
 				send_message(fd, -1, "%d %s %s :No such nick/channel", ERR_NOSUCHNICK, cli->fd, bufp);
 				return;
 			}
+
 			is_channel = 0;
 		}
-
-		if (is_channel)
-		
-	}
+			
+		snprintf(message_buffer, 470, "PRIVMSG %s %s", bufp, args[2]);
 	
-		
-
-}
+		is_channel ? relay_message(target_chan, cli->fd, message_buffer) : send_message(target_cli->fd, cli->fd, message_buffer);
+	}
+}	

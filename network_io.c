@@ -94,12 +94,12 @@ void send_message(int conn_fd, int sender_fd, char *message, ...)
 
 	va_start(ap, message);
 
-	if (sender_fd != -1) { /* relay */
+	if (sender_fd != -1) { /* relaying a client message */
 		if (get_client_prefix(sender_fd, sender_buffer) < 0) {
 			printf("Error identifying sender. Invalid file descriptor.\n");
 			return;
 		}
-	} else {
+	} else { /* server is sending its own message */
 		getsockname(conn_fd, (struct sockaddr *) &server_addr, &addrlen);
 		inet_ntop(AF_INET, &(server_addr.sin_addr), sender_buffer, 56);
 	}	
