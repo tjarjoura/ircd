@@ -60,6 +60,7 @@ struct channel *new_channel(char *chan_name)
 		return NULL;
 
 	strncpy(channels[i].name, chan_name, 20);
+	channels[i].n_joined = 0;
 
 	n_channels++;
 
@@ -127,7 +128,8 @@ void join_channel(struct channel *chan, struct client *cli)
 	for (i = 0; i < MAX_JOIN; i++) {
 		if (chan->joined_users[i] == NULL) {
 			chan->joined_users[i] = cli;
-			
+			chan->n_joined++;	
+
 			/* add to clients joined channel list */
 			for (j = 0; j < MAX_CHAN_JOIN; j++) {
 				if (cli->joined_channels[j] == NULL) {
@@ -165,6 +167,7 @@ void part_user(struct channel *chan, struct client *cli)
 	}
 
 	chan->joined_users[i] = NULL;
+	chan->n_joined--;
 
 	/* remove channel from the client list of joined_channels */
 	for (i = 0; i < MAX_CHAN_JOIN; i++) {
