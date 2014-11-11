@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "network_io.h"
 #include "channel.h"
 #include "client.h"
@@ -106,20 +107,12 @@ static void send_channel_greeting(struct channel *chan, struct client *cli)
 		}
 	}
 
-	if (n > 0)
+	if (n > 0) {
 		send_message(cli->fd, -1, "%d %s = %s :%s", RPL_NAMREPLY, cli->nick, chan->name, user_list);
+		memset(user_list, 0x00, 400);
+	}
 
 	send_message(cli->fd, -1, "%d %s %s :End of /NAMES list", RPL_ENDOFNAMES, cli->nick, chan->name);
-}
-
-void relay_message(struct channel *chan, int cli_fd, char *message)
-{
-	int i;
-
-	for (i = 0; i < MAX_JOIN; i++) {
-		if ((chan->joined_users[i] != NULL) && (chan->joined_users[i]->fd != cli_fd))
-			send_message(chan->joined_users[i]->fd, cli_fd, message);
-	}
 }
 
 void join_channel(struct channel *chan, struct client *cli)

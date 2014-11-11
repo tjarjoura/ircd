@@ -24,6 +24,8 @@ struct client {
 	int welcomed;
 };
 
+extern int n_clients;
+
 void initialize_clients();
 
 int new_client(int conn_fd);
@@ -36,7 +38,5 @@ struct client *get_client(int conn_fd);
 struct client *get_client_nick(char *nick);
 
 int get_client_prefix(int cli_fd, char *sender_buffer);
-void send_welcome(struct client *cli);
-void send_to_all(struct client *cli, char *message);
 
 #endif

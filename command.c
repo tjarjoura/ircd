@@ -66,6 +66,7 @@ static void handle_nick(int fd, int argc, char **args)
 {
 	int rv;
 	struct client *cli = get_client(fd);
+		
 
 	if (argc < 2)
 		rv = ERR_NONICKNAMEGIVEN;
@@ -111,7 +112,6 @@ static void handle_join(int fd, int argc, char **args)
 {
 	struct client *cli = get_client(fd);
 	struct channel *chan;
-	char message_buffer[50];
 	
 	if (argc < 2) {
 		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
@@ -139,11 +139,10 @@ static void handle_join(int fd, int argc, char **args)
 			}
 		}
 
+		/* Must be in this order */
+		send_message(cli->fd, cli->fd, "JOIN %s", bufp);
 		join_channel(chan, cli);
-		
-		snprintf(message_buffer, 50, "JOIN %s", chan->name);
-		send_message(cli->fd, cli->fd, message_buffer);
-		relay_message(chan, cli->fd, message_buffer);
+		send_to_channel(chan, cli->fd, "JOIN %s", bufp);
 
 		/* advance to next channel name */
 		while (*bufp != '\0') bufp++;
@@ -155,7 +154,6 @@ static void handle_part(int fd, int argc, char **args)
 {
 	struct client *cli = get_client(fd);
 	struct channel *chan;
-	char message_buffer[50];
 
 	if (argc < 2) {
 		send_message(fd, -1, "%d %s %s :Not enough parameters", ERR_NEEDMOREPARAMS, cli->nick, args[0]);
@@ -184,8 +182,7 @@ static void handle_part(int fd, int argc, char **args)
 
 		part_user(chan, cli);
 		
-		snprintf(message_buffer, 50, "PART %s", chan->name);
-		relay_message(chan, cli->fd, message_buffer);
+		send_to_channel(chan, cli->fd, "PART %s %s", chan->name, args[1]);
 
 		/* advance to next channel name */
 		while (*bufp != '\0') bufp++;
@@ -198,7 +195,6 @@ static void handle_privmsg(int fd, int argc, char **args)
 	struct client  *cli = get_client(fd);
 	struct channel *target_chan;
 	struct client *target_cli;
-	char message_buffer[470];
 
 	char *bufp = args[1];
 	int i, n = 1;
@@ -229,14 +225,17 @@ static void handle_privmsg(int fd, int argc, char **args)
 		if ((target_chan = get_channel(bufp)) == NULL) {
 			if ((target_cli = get_client_nick(bufp)) == NULL) {
 				send_message(fd, -1, "%d %s %s :No such nick/channel", ERR_NOSUCHNICK, cli->fd, bufp);
-				return;
+				continue;
 			}
 
 			is_channel = 0;
 		}
-			
-		snprintf(message_buffer, 470, "PRIVMSG %s %s", bufp, args[2]);
-	
-		is_channel ? relay_message(target_chan, cli->fd, message_buffer) : send_message(target_cli->fd, cli->fd, message_buffer);
+
+		if (is_channel && !in_channel(target_chan, cli->fd)) {
+			send_message(fd, -1, "%d %s :Cannot send to channel", ERR_CANNOTSENDTOCHAN, bufp);
+			continue;
+		}
+
+		is_channel ? send_to_channel(target_chan, cli->fd, "PRIVMSG %s %s", bufp, args[2]) : send_message(target_cli->fd, cli->fd, "PRIVMSG %s %s", bufp, args[2]);
 	}
 }	

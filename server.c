@@ -14,7 +14,7 @@
 #include "channel.h"
 #include "client.h"
 #include "network_io.h"
-#include "server.h"
+#include "stat.h"
 
 #define LISTENPORT 6667
 #define LISTENMAX 4
@@ -25,18 +25,14 @@ static int n_fds = 0;
 
 time_t server_start_time;
 
-const char *server_version = "devel";
-const char *motd = "This IRC server was written by Tyler Jarjoura";
-
 static void initialize()
 {
 	int i;
 
 	for (i = 0; i < (MAX_CLIENTS + 1); i++)
 		input_fds[i] = -1;
-	
-	server_start_time = time(NULL);
 
+	initialize_stat();	
 	initialize_clients();
 	initialize_channels();
 }
@@ -171,8 +167,6 @@ static void handle_packet(int cli_fd, char *read_buffer, int n)
 	int argc; 
 	char **args;
 	char *bufp;
-
-	char quit_message[250];
 	struct client *cli;
 
 	for (i = 0; i < n; i++) {
@@ -188,8 +182,7 @@ static void handle_packet(int cli_fd, char *read_buffer, int n)
 		
 		if (strcmp(args[0], "QUIT") == 0) {
 			cli = get_client(cli_fd);
-			snprintf(quit_message, 250, "QUIT %s\n", args[1]);
-			send_to_all(cli, quit_message);
+			send_to_all_visible(cli, "QUIT %s", args[1]);
 
 			remove_client(cli_fd);
 			remove_descriptor(cli_fd);
